@@ -1,0 +1,201 @@
+@import url("https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap");
+@import "tailwindcss";
+
+/* ─────────────────────────────────────────────────────
+   CSS Theme Variables  —  dark (default) / .light override
+───────────────────────────────────────────────────── */
+:root {
+  --font-bebas: "Bebas Neue";
+  --font-inter: "Inter";
+
+  /* ── Dark theme ── */
+  --bg:           #050505;
+  --fg:           #F5F5F5;
+  --fg-muted:     rgba(245,245,245,0.55);
+  --fg-subtle:    rgba(245,245,245,0.35);
+  --fg-ghost:     rgba(245,245,245,0.20);
+  --surface:      rgba(255,255,255,0.03);
+  --surface2:     rgba(255,255,255,0.06);
+  --border:       rgba(255,255,255,0.08);
+  --border-strong:rgba(255,255,255,0.15);
+  --card-bg:      #080808;
+  --card-shadow:  none;
+  --img-bg:       #111111;
+  --price-bg:     rgba(5,5,5,0.82);
+  --price-text:   #F3CDA0;
+  --accent-text:  #F3CDA0;           /* peach for dark */
+  --nav-bg:       rgba(5,5,5,0.92);
+  --drawer-bg:    #080808;
+  --input-bg:     rgba(255,255,255,0.04);
+  --input-border: rgba(255,255,255,0.10);
+  --skeleton-a:   #111;
+  --skeleton-b:   #1a1a1a;
+
+  /* ── ULTRA MODE design tokens ── */
+  --gold:          #D4AF37;
+  --gold-muted:    rgba(212,175,55,0.6);
+  --gold-glow:     rgba(212,175,55,0.15);
+  --sage:          #7CB895;
+  --sage-glow:     rgba(124,184,149,0.15);
+  --radius-card:   16px;
+  --shadow-gold:   0 0 32px rgba(212,175,55,0.12), 0 2px 12px rgba(0,0,0,0.4);
+  --shadow-sage:   0 0 32px rgba(124,184,149,0.10), 0 2px 12px rgba(0,0,0,0.4);
+}
+
+html.light {
+  /* ── Light theme  (warm cream — premium editorial) ── */
+  --bg:           #F9F4F0;
+  --fg:           #1A1208;             /* deep warm black */
+  --fg-muted:     #4A3F35;             /* warm charcoal   */
+  --fg-subtle:    #7A6E65;             /* medium warm grey */
+  --fg-ghost:     #B0A89F;             /* light warm grey  */
+  --surface:      #FFFFFF;
+  --surface2:     #F2ECE7;
+  --border:       rgba(26,18,8,0.10);
+  --border-strong:rgba(26,18,8,0.20);
+  --card-bg:      #FFFFFF;
+  --card-shadow:  0 2px 20px rgba(26,18,8,0.07), 0 1px 4px rgba(26,18,8,0.05);
+  --img-bg:       #EDE8E2;
+  --price-bg:     rgba(255,255,255,0.92);
+  --price-text:   #8A5E1A;             /* warm amber — readable on light */
+  --accent-text:  #7C622A;             /* warm gold tone for light bg   */
+  --nav-bg:       rgba(249,244,240,0.93);
+  --drawer-bg:    #FFFFFF;
+  --input-bg:     #FFFFFF;
+  --input-border: rgba(26,18,8,0.15);
+  --skeleton-a:   #EDE8E2;
+  --skeleton-b:   #E0D8D0;
+}
+
+/* ── Apply theme ── */
+html, body {
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: "Inter", system-ui, sans-serif;
+  overflow-x: clip;
+  transition: background-color 0.4s ease, color 0.3s ease;
+}
+
+/* ── Utility aliases (usable as Tailwind class names) ── */
+.bg-bg        { background-color: var(--bg); }
+.bg-surface   { background-color: var(--surface); }
+.bg-surface2  { background-color: var(--surface2); }
+.text-fg      { color: var(--fg); }
+.text-fg-muted  { color: var(--fg-muted); }
+.text-fg-subtle { color: var(--fg-subtle); }
+.text-fg-ghost  { color: var(--fg-ghost); }
+.border-theme   { border-color: var(--border); }
+.border-theme-strong { border-color: var(--border-strong); }
+
+/* ── Map iframe (dark: inverted, light: natural) ── */
+.map-iframe { filter: invert(90%) hue-rotate(180deg); }
+html.light .map-iframe { filter: none; }
+
+/* ── Smooth scroll ── */
+html { scroll-behavior: smooth; }
+
+/* ── Hide scrollbars ── */
+* { -ms-overflow-style: none; scrollbar-width: none; }
+*::-webkit-scrollbar { display: none; }
+
+/* ── Form input fixes ── */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.4) sepia(1) saturate(3) hue-rotate(95deg);
+  cursor: pointer;
+}
+html.light input[type="date"]::-webkit-calendar-picker-indicator,
+html.light input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: none;
+}
+select option { background-color: var(--card-bg); color: var(--fg); }
+
+/* ── Skeleton / shimmer ── */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--skeleton-a) 25%, var(--skeleton-b) 50%, var(--skeleton-a) 75%);
+  background-size: 400px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+/* ── Text selection ── */
+::selection { background: rgba(212,175,55,0.25); color: var(--fg); }
+
+/* ── Line-clamp utilities ── */
+.line-clamp-4 {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── ULTRA MODE utilities ── */
+
+/* Gold gradient text */
+.text-gradient-gold {
+  background: linear-gradient(135deg, #D4AF37 0%, #F3CDA0 45%, #D4AF37 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Sage gradient text */
+.text-gradient-sage {
+  background: linear-gradient(135deg, #7CB895 0%, #9ECFB4 60%, #7CB895 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Gold glow utility */
+.glow-gold {
+  box-shadow: var(--shadow-gold);
+}
+
+/* Sage glow utility */
+.glow-sage {
+  box-shadow: var(--shadow-sage);
+}
+
+/* Glassmorphism card */
+.glass-card {
+  background: rgba(255,255,255,0.04);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+/* Float animation for hero elements */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-8px); }
+}
+.float {
+  animation: float 4s ease-in-out infinite;
+}
+
+/* Gold pulse (for badges, highlights) */
+@keyframes gold-pulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(212,175,55,0.2); }
+  50%       { box-shadow: 0 0 24px rgba(212,175,55,0.45); }
+}
+.gold-pulse {
+  animation: gold-pulse 2.5s ease-in-out infinite;
+}
+
+/* Sage glow border (for takeaway / CTA elements) */
+@keyframes sage-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(124,184,149,0.18); }
+  50%       { box-shadow: 0 0 24px rgba(124,184,149,0.4); }
+}
+.sage-pulse {
+  animation: sage-glow 2.5s ease-in-out infinite;
+}

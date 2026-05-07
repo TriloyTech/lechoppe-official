@@ -1,0 +1,61 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (NEVER commit secrets)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# ── AI agent configuration (private) ──
+AGENTS.md
+CLAUDE.md
+
+# ── SQL setup scripts (private) ──
+supabase_setup.sql
+supabase_setup_takeaway.sql
+supabase_drop_check.sql
+
+# ── Dangerous utility scripts with hardcoded secrets ──
+setup-db.mjs
+fix-category-constraint.mjs
+check-tables.mjs
+check_bbox.js
+test_supabase.js
+scripts/
+.env.vercel.test
+proxy.ts
+test.jpg
