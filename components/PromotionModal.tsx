@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/postgres/client";
 import { useLang } from "@/context/LangContext";
 
 interface Offer {
@@ -32,11 +32,11 @@ export default function PromotionModal({ booking, onClose }: Props) {
   const [copied, setCopied]   = useState(false);
 
   useEffect(() => {
-    const supabase = createClient();
+    const db = createClient();
     const fetchOffer = async () => {
       try {
         const today = new Date().toISOString();
-        const { data } = await supabase
+        const { data } = await db
           .from("offers")
           .select("code, discount, description, valid_until")
           .eq("active", true)

@@ -5,8 +5,8 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { createClient } from "@/lib/supabase/client";
-import type { MenuItem, Reservation } from "@/lib/supabase/types";
+import { createClient } from "@/lib/postgres/client";
+import type { MenuItem, Reservation } from "@/lib/postgres/types";
 import { useLang, LANG_LABELS, LANG_FLAGS, Lang } from "@/context/LangContext";
 import { useCategories, Category, DEFAULT_CATEGORIES } from "@/lib/hooks/useCategories";
 import { useSiteContent, DEFAULT_CONTENT, SiteContent } from "@/lib/hooks/useSiteContent";
@@ -17,7 +17,7 @@ function AdminLangDropdown() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  useEffect(() => { 
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
@@ -174,6 +174,15 @@ function MenuItemModal({
   const [err, setErr] = useState("");
   const [uploadingImage, setUploadingImage] = useState(false);
 
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    (window as any).lenis?.stop();
+    return () => {
+      document.body.style.overflow = "unset";
+      (window as any).lenis?.start();
+    };
+  }, []);
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
       if (!e.target.files || e.target.files.length === 0) return;
@@ -229,17 +238,20 @@ function MenuItemModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
       <motion.div
+        data-lenis-prevent="true"
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="bg-[#0A0A0A] border border-white/10 rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto"
+        className="bg-[#0A0A0A] border border-white/10 rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl relative overflow-hidden"
       >
-        <h3 className="text-xl mb-6 text-[#7CB895]" style={bebas}>
-          {item ? t({ fr: "Modifier un Plat", en: "Edit Dish", es: "Editar Plato", it: "Modifica Piatto" }) : t("Nouveau Plat", "New Dish")}
-        </h3>
+        <div className="px-6 pt-6 pb-2 shrink-0">
+          <h3 className="text-xl text-[#7CB895]" style={bebas}>
+            {item ? t({ fr: "Modifier un Plat", en: "Edit Dish", es: "Editar Plato", it: "Modifica Piatto" }) : t("Nouveau Plat", "New Dish")}
+          </h3>
+        </div>
 
-        <div className="space-y-4">
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 scrollbar-thin">
           <div>
             <label className="block text-[0.6rem] tracking-widest uppercase text-white/40 mb-1.5">{t({ fr: "Nom *", en: "Name *", es: "Nombre *", it: "Nome *" })}</label>
             <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} className={inputCls} placeholder={t({ fr: "Ex: Le Burger Signature", en: "Ex: Signature Burger", es: "Ej: La Hamburguesa Signature", it: "Es: Il Burger Signature" })} />
@@ -298,15 +310,6 @@ function MenuItemModal({
                 <img src={draft.image_url} alt="Preview" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
               </div>
             )}
-            {!draft.image_url && uploadingImage && (
-              <div className="mt-3 relative w-full h-40 rounded-lg overflow-hidden border border-white/10 bg-[#0A0A0A] flex flex-col items-center justify-center">
-                <svg className="animate-spin h-8 w-8 text-[#7CB895] mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span className="text-xs text-[#7CB895] uppercase tracking-widest">{t({ fr: "Téléchargement...", en: "Uploading...", es: "Subiendo...", it: "Caricamento..." })}</span>
-              </div>
-            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4 py-2">
@@ -340,27 +343,27 @@ function MenuItemModal({
           </div>
 
           <AnimatePresence>
-          {draft.has_allergens && (
-            <motion.div initial={{opacity:0,height:0}} animate={{opacity:1,height:"auto"}} exit={{opacity:0,height:0}}>
-              <label className="block text-[0.6rem] tracking-widest uppercase text-white/40 mb-1.5 mt-1">
-                {t({ fr: "Détail des allergènes", en: "Allergen details", es: "Detalle de alérgenos", it: "Dettaglio allergeni" })}
-              </label>
-              <input
-                id="mi-allergens"
-                type="text"
-                value={draft.allergens_text}
-                onChange={(e) => setDraft(p => ({ ...p, allergens_text: e.target.value }))}
-                className={inputCls}
-                placeholder={t({ fr: "Gluten, lactose, fruits à coque…", en: "Gluten, dairy, tree nuts…", es: "Gluten, lácteos, frutos secos…", it: "Glutine, latticini, frutta a guscio…" })}
-              />
-            </motion.div>
-          )}
+            {draft.has_allergens && (
+              <motion.div initial={{opacity:0,height:0}} animate={{opacity:1,height:"auto"}} exit={{opacity:0,height:0}}>
+                <label className="block text-[0.6rem] tracking-widest uppercase text-white/40 mb-1.5 mt-1">
+                  {t({ fr: "Détail des allergènes", en: "Allergen details", es: "Detalle de alérgenos", it: "Dettaglio allergeni" })}
+                </label>
+                <input
+                  id="mi-allergens"
+                  type="text"
+                  value={draft.allergens_text}
+                  onChange={(e) => setDraft(p => ({ ...p, allergens_text: e.target.value }))}
+                  className={inputCls}
+                  placeholder={t({ fr: "Gluten, lactose, fruits à coque…", en: "Gluten, dairy, tree nuts…", es: "Gluten, lácteos, frutos secos…", it: "Glutine, latticini, frutta a guscio…" })}
+                />
+              </motion.div>
+            )}
           </AnimatePresence>
 
           {err && <p className="text-red-400 text-xs">⚠ {err}</p>}
         </div>
 
-        <div className="flex gap-3 mt-6">
+        <div className="px-6 pb-6 pt-2 shrink-0 flex gap-3">
           <button onClick={onClose} className="flex-1 py-2.5 text-xs tracking-widest uppercase border border-white/10 text-white/50 hover:bg-white/5 rounded-lg transition-colors">
             {t({ fr: "Annuler", en: "Cancel", es: "Cancelar", it: "Annulla" })}
           </button>
@@ -377,7 +380,7 @@ function MenuItemModal({
 // Categories Panel
 // ─────────────────────────────────────────────────────────────────────────────
 function CategoriesPanel({ t }: { t: (fr: string, en: string) => string }) {
-  const supabase = createClient();
+  const db = useMemo(() => createClient(), []);
   const [cats, setCats] = useState<Category[]>([]);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
@@ -395,13 +398,13 @@ function CategoriesPanel({ t }: { t: (fr: string, en: string) => string }) {
     "🧀", "🥞", "🧇", "🥓", "🍳", "🍟", "🍠", "🍓", "🍉", "🍒"
   ];
 
-  useEffect(() => {
+  useEffect(() => { 
     (async () => {
-      const { data } = await supabase.from("site_settings").select("value").eq("key", "categories").maybeSingle();
+      const { data } = await db.from("site_settings").select("value").eq("key", "categories").maybeSingle();
       if (data?.value && Array.isArray(data.value)) setCats(data.value as Category[]);
       else setCats(DEFAULT_CATEGORIES);
     })();
-  }, [supabase]);
+  }, [db]);
 
   const runSetup = async () => {
     setSetupRunning(true); setMsg("");
@@ -417,7 +420,7 @@ function CategoriesPanel({ t }: { t: (fr: string, en: string) => string }) {
 
   const save = async () => {
     setSaving(true); setMsg("");
-    const { error } = await supabase.from("site_settings").upsert({ key: "categories", value: cats }, { onConflict: "key" });
+    const { error } = await db.from("site_settings").upsert({ key: "categories", value: cats }, { onConflict: "key" });
     setMsg(error ? error.message : t({ fr: "Sauvegardé ✓", en: "Saved ✓", es: "Guardado ✓", it: "Salvato ✓" }));
     setSaving(false);
   };
@@ -500,21 +503,21 @@ function CategoriesPanel({ t }: { t: (fr: string, en: string) => string }) {
 // Content Panel
 // ─────────────────────────────────────────────────────────────────────────────
 function ContentPanel({ t }: { t: (fr: string, en: string) => string }) {
-  const supabase = createClient();
+  const db = useMemo(() => createClient(), []);
   const [form, setForm] = useState<SiteContent>(DEFAULT_CONTENT);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
 
-  useEffect(() => {
+  useEffect(() => { 
     (async () => {
-      const { data } = await supabase.from("site_settings").select("value").eq("key", "site_content").maybeSingle();
+      const { data } = await db.from("site_settings").select("value").eq("key", "site_content").maybeSingle();
       if (data?.value && typeof data.value === "object") setForm({ ...DEFAULT_CONTENT, ...(data.value as Partial<SiteContent>) });
     })();
-  }, [supabase]);
+  }, [db]);
 
   const save = async () => {
     setSaving(true); setMsg("");
-    const { error } = await supabase.from("site_settings").upsert({ key: "site_content", value: form }, { onConflict: "key" });
+    const { error } = await db.from("site_settings").upsert({ key: "site_content", value: form }, { onConflict: "key" });
     setMsg(error ? error.message : t({ fr: "Sauvegardé ✓", en: "Saved ✓", es: "Guardado ✓", it: "Salvato ✓" }));
     setSaving(false);
   };
@@ -800,7 +803,7 @@ function ContentPanel({ t }: { t: (fr: string, en: string) => string }) {
 // Offers Panel
 // ─────────────────────────────────────────────────────────────────────────────
 
-function OffersPanel({ supabase, t }: { supabase: any; t: (fr: string, en: string) => string }) {
+function OffersPanel({ db, t }: { db: any; t: (fr: string, en: string) => string }) {
   const [offers, setOffers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -810,14 +813,28 @@ function OffersPanel({ supabase, t }: { supabase: any; t: (fr: string, en: strin
 
   const fetchOffers = async () => {
     setLoading(true);
-    const { data } = await supabase.from("offers").select("*").order("created_at", { ascending: false });
+    const { data } = await db.from("offers").select("*").order("created_at", { ascending: false });
     setOffers(data || []);
     setLoading(false);
   };
 
-  useEffect(() => {
+  useEffect(() => { 
     fetchOffers();
-  }, [supabase]);
+  }, [db]);
+
+  useEffect(() => {
+    if (modalOpen) {
+      document.body.style.overflow = "hidden";
+      (window as any).lenis?.stop();
+    } else {
+      document.body.style.overflow = "unset";
+      (window as any).lenis?.start();
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+      (window as any).lenis?.start();
+    };
+  }, [modalOpen]);
 
   const handleOpenModal = (offer?: any) => {
     if (offer) {
@@ -855,9 +872,9 @@ function OffersPanel({ supabase, t }: { supabase: any; t: (fr: string, en: strin
       };
 
       if (editOffer) {
-        await supabase.from("offers").update(payload).eq("id", editOffer.id);
+        await db.from("offers").update(payload).eq("id", editOffer.id);
       } else {
-        await supabase.from("offers").insert([payload]);
+        await db.from("offers").insert([payload]);
       }
       setModalOpen(false);
       fetchOffers();
@@ -869,13 +886,13 @@ function OffersPanel({ supabase, t }: { supabase: any; t: (fr: string, en: strin
   };
 
   const toggleActive = async (id: string, currentStatus: boolean) => {
-    await supabase.from("offers").update({ active: !currentStatus }).eq("id", id);
+    await db.from("offers").update({ active: !currentStatus }).eq("id", id);
     fetchOffers();
   };
 
   const handleDelete = async (id: string) => {
     if (confirm(t({ fr: "Supprimer ce code promo ?", en: "Delete this promo code?", es: "¿Eliminar este código promo?", it: "Eliminare questo codice promo?" }))) {
-      await supabase.from("offers").delete().eq("id", id);
+      await db.from("offers").delete().eq("id", id);
       fetchOffers();
     }
   };
@@ -944,7 +961,7 @@ function OffersPanel({ supabase, t }: { supabase: any; t: (fr: string, en: strin
         {modalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setModalOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative bg-[#1A1A1A] border border-white/10 rounded-xl p-6 w-full max-w-md shadow-2xl">
+            <motion.div data-lenis-prevent="true" initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative bg-[#1A1A1A] border border-white/10 rounded-xl p-6 w-full max-w-md shadow-2xl">
               <h3 className="text-xl text-[#7CB895] uppercase tracking-wider mb-6" style={bebas}>
                 {editOffer ? t({ fr: "Modifier l'Offre", en: "Edit Offer", es: "Editar Oferta", it: "Modifica Offerta" }) : t({ fr: "Nouvelle Offre", en: "New Offer", es: "Nueva Oferta", it: "Nuova Offerta" })}
               </h3>
@@ -1004,7 +1021,7 @@ function OffersPanel({ supabase, t }: { supabase: any; t: (fr: string, en: strin
                 {t({ fr: "Si la sauvegarde échoue, assurez-vous que la connexion à Supabase est établie.", en: "If saving fails, ensure the Supabase connection is established.", es: "Si el guardado falla, asegúrese de que la conexión a Supabase esté establecida.", it: "Se il salvataggio fallisce, assicurarsi che la connessione a Supabase sia attiva." })}
               </p>
 
-              <div className="flex gap-3 mt-6">
+              <div className="flex gap-3 mt-4">
                 <button onClick={() => setModalOpen(false)} className="flex-1 py-2 text-xs uppercase tracking-widest border border-white/10 text-white/60 hover:bg-white/5 rounded-lg transition-colors">
                   {t({ fr: "Annuler", en: "Cancel", es: "Cancelar", it: "Annulla" })}
                 </button>
@@ -1064,7 +1081,7 @@ function DashboardPanel({ reservations, menuItems, t }: { reservations: Reservat
 export default function AdminDashboard() {
   const router = useRouter();
   const { t, lang, toggle } = useLang();
-  const supabase = createClient();
+  const db = useMemo(() => createClient(), []);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1113,19 +1130,12 @@ export default function AdminDashboard() {
   const deleteSelectedReservations = async () => {
     if (selectedReservations.size === 0) return;
     if (confirm(t(`Êtes-vous sûr de vouloir supprimer ces ${selectedReservations.size} réservation(s) ?`, `Are you sure you want to delete these ${selectedReservations.size} reservation(s)?`))) {
-      await supabase.from("reservations").delete().in("id", Array.from(selectedReservations));
+      await db.from("reservations").delete().in("id", Array.from(selectedReservations));
       setSelectedReservations(new Set());
       fetchData();
     }
   };
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!data.session) router.push("/admin/login");
-    };
-    checkAuth();
-  }, [router, supabase]);
 
   const handleLogout = async () => {
     await fetch("/api/admin/auth", { method: "DELETE" });
@@ -1135,28 +1145,28 @@ export default function AdminDashboard() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     const [menuRes, resRes] = await Promise.all([
-      supabase.from("menu_items").select("*").order("category").order("name"),
-      supabase.from("reservations").select("*").order("date", { ascending: true }).order("time", { ascending: true }),
+      db.from("menu_items").select("*").order("category").order("name"),
+      db.from("reservations").select("*").order("date", { ascending: true }).order("time", { ascending: true }),
     ]);
 
     if (!menuRes.error) setMenuItems(menuRes.data || []);
     if (!resRes.error) setReservations(resRes.data || []);
     setLoading(false);
-  }, [supabase]);
+  }, [db]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {  fetchData(); }, [fetchData]);
 
   const updateResStatus = async (id: string, status: Reservation["status"]) => {
-    await supabase.from("reservations").update({ status }).eq("id", id);
+    await db.from("reservations").update({ status }).eq("id", id);
     fetchData();
   };
 
   const handleSaveItem = async (draft: Partial<MenuItem>) => {
     if (editingItem) {
-      const { error } = await supabase.from("menu_items").update(draft).eq("id", editingItem.id);
+      const { error } = await db.from("menu_items").update(draft).eq("id", editingItem.id);
       if (error) throw error;
     } else {
-      const { error } = await supabase.from("menu_items").insert([draft]);
+      const { error } = await db.from("menu_items").insert([draft]);
       if (error) throw error;
     }
     fetchData();
@@ -1164,7 +1174,7 @@ export default function AdminDashboard() {
 
   const deleteItem = async (id: string) => {
     if (confirm(t({ fr: "Supprimer ce plat ?", en: "Delete this dish?", es: "¿Eliminar este plato?", it: "Eliminare questo piatto?" }))) {
-      await supabase.from("menu_items").delete().eq("id", id);
+      await db.from("menu_items").delete().eq("id", id);
       fetchData();
     }
   };
@@ -1245,7 +1255,7 @@ export default function AdminDashboard() {
             {activeTab === "dashboard" && <DashboardPanel reservations={reservations} menuItems={menuItems} t={t} />}
             {activeTab === "categories" && <CategoriesPanel t={t} />}
             {activeTab === "content" && <ContentPanel t={t} />}
-            {activeTab === "offers" && <OffersPanel supabase={supabase} t={t} />}
+            {activeTab === "offers" && <OffersPanel db={db} t={t} />}
             
             {activeTab === "reservations" && (
               <div className="max-w-6xl">
@@ -1338,7 +1348,7 @@ export default function AdminDashboard() {
                               )}
                               <button onClick={() => {
                                 if (confirm(t({ fr: "Supprimer cette réservation ?", en: "Delete this reservation?", es: "¿Eliminar esta reserva?", it: "Eliminare questa prenotazione?" }))) {
-                                  supabase.from("reservations").delete().eq("id", r.id).then(() => fetchData());
+                                  db.from("reservations").delete().eq("id", r.id).then(() => fetchData());
                                 }
                               }} className="px-3 py-1 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 rounded text-xs transition-colors">
                                 {t({ fr: "Supprimer", en: "Delete", es: "Eliminar", it: "Elimina" })}
@@ -1401,7 +1411,7 @@ export default function AdminDashboard() {
                       <div className="p-5">
                         <div className="flex justify-between items-start mb-1">
                           <h3 className="font-bold text-lg text-white/90 truncate pr-2">{item.name}</h3>
-                          <span className="text-[#D4AF37] font-mono">€{item.price.toFixed(2)}</span>
+                          <span className="text-[#D4AF37] font-mono">€{Number(item.price).toFixed(2)}</span>
                         </div>
                         <p className="text-xs text-white/40 uppercase tracking-wider mb-3">{getCategoryLabel(item.category)}</p>
                         
