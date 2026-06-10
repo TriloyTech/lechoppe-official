@@ -3,19 +3,19 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/postgres/client";
 import { STATIC_MENU, MenuItem, fmt } from "@/data/menu";
 import { useLang } from "@/context/LangContext";
 
-/* Derive suggestions — prefer Supabase data, fall back to static */
+/* Derive suggestions — prefer database data, fall back to static */
 function useChefItems(): MenuItem[] {
   const [items, setItems] = useState<MenuItem[]>(
     STATIC_MENU.filter((m) => m.chef_suggestion)
   );
 
   useEffect(() => {
-    const supabase = createClient();
-    supabase
+    const db = createClient();
+    db
       .from("menu_items")
       .select("*")
       .eq("chef_suggestion", true)

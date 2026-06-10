@@ -2,7 +2,7 @@
 // Fetches custom categories from site_settings, falls back to static list.
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/postgres/client";
 
 export interface Category {
   key: string;
@@ -24,8 +24,8 @@ export function useCategories() {
 
   const fetch = useCallback(async () => {
     try {
-      const supabase = createClient();
-      const { data } = await supabase
+      const db = createClient();
+      const { data } = await db
         .from("site_settings")
         .select("value")
         .eq("key", "categories")
@@ -43,8 +43,8 @@ export function useCategories() {
   useEffect(() => { fetch(); }, [fetch]);
 
   const saveCategories = async (cats: Category[]) => {
-    const supabase = createClient();
-    await supabase
+    const db = createClient();
+    await db
       .from("site_settings")
       .upsert({ key: "categories", value: cats }, { onConflict: "key" });
     setCategories(cats);

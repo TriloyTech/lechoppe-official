@@ -1,6 +1,4 @@
-// ─── lib/supabase/types.ts ────────────────────────────────────────────────
-// Shared TypeScript types for Supabase tables.
-// Run `npx supabase gen types typescript` to auto-generate from your schema.
+// Shared TypeScript types for local database tables.
 
 export interface MenuItem {
   id: string;

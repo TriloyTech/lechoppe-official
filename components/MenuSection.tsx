@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import { createClient } from "@/lib/supabase/client";
-import type { MenuItem } from "@/lib/supabase/types";
+import { createClient } from "@/lib/postgres/client";
+import type { MenuItem } from "@/lib/postgres/types";
 import { useLang } from "@/context/LangContext";
 
 // ── Category display config ────────────────────────────────────────────────────
@@ -112,7 +112,7 @@ function MenuCard({ item, index }: { item: MenuItem; index: number }) {
             className="text-sm font-semibold"
             style={{ color: "var(--price-text)", fontFamily: "var(--font-inter)" }}
           >
-            €{item.price.toFixed(2)}
+            €{Number(item.price).toFixed(2)}
           </span>
         </div>
 
@@ -193,7 +193,7 @@ function CategoryHeader({ category, count, lang }: { category: string; count: nu
 
 // ── Main section ──────────────────────────────────────────────────────────────
 export default function MenuSection() {
-  const supabase = createClient();
+  const db = useMemo(() => createClient(), []);
   const { t, lang } = useLang();
   const [items, setItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -207,14 +207,14 @@ export default function MenuSection() {
 
   const fetchMenu = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data } = await db
       .from("menu_items")
       .select("*")
       .order("category")
       .order("name");
     setItems(data ?? []);
     setLoading(false);
-  }, [supabase]);
+  }, [db]);
 
   useEffect(() => { fetchMenu(); }, [fetchMenu]);
 

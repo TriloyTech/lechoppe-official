@@ -178,4 +178,4 @@ export const CATEGORIES: { key: MenuCategory; fr: string; en: string }[] = [
 ];
 
 export const fmt = (price: number) =>
-  price % 1 === 0 ? `${price}€` : `${price.toFixed(2).replace(".", ",")}€`;
+  price % 1 === 0 ? `${price}€` : `${Number(price).toFixed(2).replace(".", ",")}€`;

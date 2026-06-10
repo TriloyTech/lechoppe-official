@@ -23,6 +23,7 @@ export default function SmoothScrollProvider({ children }: { children: React.Rea
     });
 
     lenisRef.current = lenis;
+    (window as any).lenis = lenis;
 
     // Drive Lenis on rAF — this is the official pattern
     let rafId: number;
@@ -36,6 +37,9 @@ export default function SmoothScrollProvider({ children }: { children: React.Rea
       cancelAnimationFrame(rafId);
       lenis.destroy();
       lenisRef.current = null;
+      if ((window as any).lenis === lenis) {
+        (window as any).lenis = undefined;
+      }
     };
   }, []);
 
