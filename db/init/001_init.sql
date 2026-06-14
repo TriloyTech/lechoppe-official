@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS menu_items (
   takeaway_available boolean DEFAULT true,
   image_url text,
   has_allergens boolean DEFAULT false,
-  allergens_text text DEFAULT ''
+  allergens_text text DEFAULT '',
+  updated_at timestamptz DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS reservations (
@@ -79,3 +80,17 @@ ON CONFLICT (code) DO NOTHING;
 INSERT INTO site_settings (key, value) VALUES
   ('categories', '[{"key":"burger","emoji":"🍔","fr":"Burgers & Plats","en":"Burgers & Mains"},{"key":"side","emoji":"🥗","fr":"Entrées & Accompagnements","en":"Starters & Sides"},{"key":"dessert","emoji":"🍮","fr":"Desserts","en":"Desserts"},{"key":"drink","emoji":"🥂","fr":"Boissons","en":"Drinks"}]'::jsonb)
 ON CONFLICT (key) DO NOTHING;
+
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_menu_items_updated_at
+    BEFORE UPDATE ON menu_items
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
