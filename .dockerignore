@@ -1,0 +1,34 @@
+# Build artifacts
+.next/
+out/
+
+# Dependencies — reinstalled inside the image
+node_modules/
+
+# Version control
+.git/
+.gitignore
+
+# Environment & secrets — injected at runtime, never in the image
+.env*
+
+# Editor & OS noise
+.vscode/
+.idea/
+*.DS_Store
+Thumbs.db
+
+# Documentation
+README.md
+docs/
+
+# Docker files — not needed inside build context
+Dockerfile
+docker-compose*.yml
+
+# Tests
+**/*.test.*
+**/*.spec.*
+
+# Supabase local dev tooling — not needed at runtime
+supabase/

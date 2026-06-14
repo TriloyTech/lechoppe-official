@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/postgres/client";
 import { STATIC_MENU, MenuItem, fmt } from "@/data/menu";
 import { useLang } from "@/context/LangContext";
 import { useCategories } from "@/lib/hooks/useCategories";
@@ -46,7 +46,8 @@ function useMenuItems() {
 function resolveImageUrl(raw?: string | null): string | null {
   if (!raw) return null;
   if (raw.startsWith("http")) return raw;
-  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/menu-images/${raw}`;
+  if (raw.startsWith("http") || raw.startsWith("/")) return raw;
+  return `/uploads/${raw}`;
 }
 
 /* ── Framer variants ─────────────────────────────────────────────────────── */

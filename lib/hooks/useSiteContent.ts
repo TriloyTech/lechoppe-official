@@ -2,7 +2,7 @@
 // Fetches editable site content from site_settings, falls back to static defaults.
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/postgres/client";
 
 export interface SiteContent {
   tagline_fr: string;
@@ -141,8 +141,8 @@ export function useSiteContent() {
 
   const fetch = useCallback(async () => {
     try {
-      const supabase = createClient();
-      const { data } = await supabase
+      const db = createClient();
+      const { data } = await db
         .from("site_settings")
         .select("key, value")
         .in("key", ["site_content"]);
@@ -163,8 +163,8 @@ export function useSiteContent() {
   useEffect(() => { fetch(); }, [fetch]);
 
   const saveContent = async (c: SiteContent) => {
-    const supabase = createClient();
-    await supabase
+    const db = createClient();
+    await db
       .from("site_settings")
       .upsert({ key: "site_content", value: c }, { onConflict: "key" });
     setContent(c);
