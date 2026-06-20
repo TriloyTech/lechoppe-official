@@ -7,6 +7,8 @@ export type MenuCategory =
 
 export interface MenuItem {
   id: string;
+  created_at?: string;
+  updated_at?: string;
   name: string;
   description: string;
   price: number;

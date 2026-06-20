@@ -10,7 +10,7 @@ type Filter = { column: string; op: "eq" | "gte" | "lte" | "lt" | "gt" | "in" | 
 type Order = { column: string; ascending: boolean };
 
 const COLUMNS: Record<string, Set<string>> = {
-  menu_items: new Set(["id","created_at","name","description","price","category","available","chef_suggestion","takeaway_available","image_url","has_allergens","allergens_text"]),
+  menu_items: new Set(["id","created_at","updated_at","name","description","price","category","available","chef_suggestion","takeaway_available","image_url","has_allergens","allergens_text"]),
   reservations: new Set(["id","created_at","name","email","phone","party_size","date","time","status","notes"]),
   offers: new Set(["id","code","discount","description","valid_until","active","created_at"]),
   site_settings: new Set(["key","value","updated_at"]),

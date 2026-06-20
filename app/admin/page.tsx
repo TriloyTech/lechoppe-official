@@ -73,6 +73,96 @@ function AdminLangDropdown() {
     </div>
   );
 }
+
+/* ── Admin Menu Sort Dropdown Component ── */
+interface AdminSortDropdownProps {
+  sortBy: string;
+  onChange: (val: string) => void;
+  t: (frOrObj: any, en?: string) => string;
+}
+
+function AdminSortDropdown({ sortBy, onChange, t }: AdminSortDropdownProps) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const options = [
+    { key: "created_at", fr: "Nouveautés", en: "Newest", es: "Novedades", it: "Novità" },
+    { key: "updated_at", fr: "Mis à jour", en: "Recently Updated", es: "Modificado", it: "Aggiornato" },
+    { key: "name", fr: "Nom", en: "Name", es: "Nombre", it: "Nome" },
+  ];
+
+  const currentOption = options.find((o) => o.key === sortBy) || options[0];
+
+  return (
+    <div ref={ref} className="relative z-30">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="px-4 py-3 text-xs tracking-wider uppercase bg-[#111] hover:bg-white/5 text-white/70 hover:text-white border border-white/10 rounded-lg flex items-center gap-2 transition-all duration-200"
+        style={{ fontFamily: "var(--font-inter)" }}
+      >
+        <span className="opacity-60">{t({ fr: "Trier par :", en: "Sort by :", es: "Ordenar por :", it: "Ordina per :" })}</span>
+        <span className="text-[#7CB895] font-semibold">{t(currentOption)}</span>
+        <svg
+          width="8"
+          height="8"
+          viewBox="0 0 12 12"
+          fill="currentColor"
+          className={`transition-transform duration-200 text-white/40 ${open ? 'rotate-180' : ''}`}
+        >
+          <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+        </svg>
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
+            className="absolute right-0 top-[calc(100%+8px)] z-[100] min-w-[180px] rounded-xl overflow-hidden border border-white/10 shadow-2xl"
+            style={{
+              background: "#161616",
+              boxShadow: "0 10px 40px rgba(0,0,0,0.8)",
+              fontFamily: "var(--font-inter)",
+            }}
+          >
+            <div className="py-1">
+              {options.map((opt) => (
+                <button
+                  key={opt.key}
+                  onClick={() => {
+                    onChange(opt.key);
+                    setOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-4 py-2.5 text-xs transition-colors text-left ${
+                    opt.key === sortBy
+                      ? "bg-[#7CB895]/10 text-[#7CB895] font-semibold"
+                      : "text-white/60 hover:bg-white/5 hover:text-white"
+                  }`}
+                >
+                  <span>{t(opt)}</span>
+                  {opt.key === sortBy && (
+                    <span className="text-[#7CB895] text-xs">✓</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 type Tab = "dashboard" | "reservations" | "menu" | "categories" | "content" | "offers" | "appearance" | "settings";
 
 const TIME_SLOTS = [
@@ -1092,6 +1182,7 @@ export default function AdminDashboard() {
   
   // Navigation state
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
+  const [menuSortBy, setMenuSortBy] = useState<string>("created_at");
   
   // Modal states
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
@@ -1111,6 +1202,25 @@ export default function AdminDashboard() {
       return resDate >= today;
     });
   }, [reservations, showPastReservations]);
+
+  const sortedMenuItems = useMemo(() => {
+    return [...menuItems].sort((a, b) => {
+      if (menuSortBy === "created_at") {
+        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return timeB - timeA; // descending (newest first)
+      }
+      if (menuSortBy === "updated_at") {
+        const timeA = (a.updated_at || a.created_at) ? new Date(a.updated_at || a.created_at).getTime() : 0;
+        const timeB = (b.updated_at || b.created_at) ? new Date(b.updated_at || b.created_at).getTime() : 0;
+        return timeB - timeA; // descending (most recently updated first)
+      }
+      if (menuSortBy === "name") {
+        return a.name.localeCompare(b.name);
+      }
+      return 0;
+    });
+  }, [menuItems, menuSortBy]);
 
   const toggleReservationSelection = (id: string) => {
     const newSet = new Set(selectedReservations);
@@ -1370,13 +1480,16 @@ export default function AdminDashboard() {
                     <h2 className="text-[2.5rem] text-[#7CB895]" style={bebas}>{t({ fr: "Menu & Plats", en: "Menu & Dishes", es: "Menú y Platos", it: "Menu e Piatti" })}</h2>
                     <p className="text-white/40 text-sm mt-1">{t({ fr: "Gérez votre carte, prix, et badges (Chef, Emporter).", en: "Manage your menu, prices, and badges (Chef, Takeaway).", es: "Gestione su carta, precios y badges (Chef, Para Llevar).", it: "Gestisci il tuo menu, prezzi e badge (Chef, Asporto)." })}</p>
                   </div>
-                  <button onClick={() => setIsAddingItem(true)} className="px-6 py-3 text-xs tracking-widest uppercase bg-white text-black font-bold rounded-lg hover:bg-gray-200 transition-colors shadow-[0_0_15px_rgba(255,255,255,0.2)]">
-                    + {t({ fr: "Ajouter un Plat", en: "Add Dish", es: "Añadir un Plato", it: "Aggiungi un Piatto" })}
-                  </button>
+                  <div className="flex items-center gap-4">
+                    <AdminSortDropdown sortBy={menuSortBy} onChange={setMenuSortBy} t={t} />
+                    <button onClick={() => setIsAddingItem(true)} className="px-6 py-3 text-xs tracking-widest uppercase bg-white text-black font-bold rounded-lg hover:bg-gray-200 transition-colors shadow-[0_0_15px_rgba(255,255,255,0.2)]">
+                      + {t({ fr: "Ajouter un Plat", en: "Add Dish", es: "Añadir un Plato", it: "Aggiungi un Piatto" })}
+                    </button>
+                  </div>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {menuItems.map(item => (
+                  {sortedMenuItems.map(item => (
                     <div key={item.id} className="bg-[#111] border border-white/10 rounded-2xl overflow-hidden group hover:border-white/20 transition-colors">
                       {item.image_url && (
                         <div className="h-48 relative overflow-hidden bg-black/50">
