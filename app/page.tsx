@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
+import { AnimatePresence } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import HeroCanvas from "@/components/HeroCanvas";
 import ChefSuggestions from "@/components/ChefSuggestions";
@@ -17,6 +18,15 @@ const LoadingScreen = dynamic(() => import("@/components/LoadingScreen"), { ssr:
 
 export default function HomePage() {
   const [ready, setReady] = useState(false);
+  const [reservationOpen, setReservationOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location.hash === "#reservation") {
+      setReservationOpen(true);
+      // Clean up the URL hash
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, []);
 
   return (
     <>
@@ -26,23 +36,28 @@ export default function HomePage() {
         className="bg-bg min-h-screen overflow-x-clip"
         style={{ visibility: ready ? "visible" : "hidden" }}
       >
-        <Navbar />
+        <Navbar onBookClick={() => setReservationOpen(true)} />
 
         {/* 121-frame scroll sequence */}
-        <HeroCanvas />
+        <HeroCanvas ready={ready} onBookClick={() => setReservationOpen(true)} />
 
         {/* Content sections */}
-        <ChefSuggestions />
+        <ChefSuggestions onBookClick={() => setReservationOpen(true)} />
         <FullMenu />
         <ReviewsSection />
         <StorySection />
         <LocationSection />
-        <ReservationSection />
-        <Footer />
+        <Footer onBookClick={() => setReservationOpen(true)} />
 
         {/* Fixed floating: WhatsApp + Theme toggle */}
-        <FloatingActions />
+        <FloatingActions onBookClick={() => setReservationOpen(true)} />
       </main>
+
+      <AnimatePresence>
+        {reservationOpen && (
+          <ReservationSection onClose={() => setReservationOpen(false)} />
+        )}
+      </AnimatePresence>
     </>
   );
 }

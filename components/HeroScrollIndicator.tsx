@@ -18,7 +18,11 @@ export default function HeroScrollIndicator({ scrollYProgress }: Props) {
 
   return (
     <motion.div
-      style={{ opacity }}
+      style={{
+        opacity,
+        backfaceVisibility: "hidden",
+        transform: "translate3d(0, -50%, 0)",
+      }}
       className="fixed right-4 md:right-6 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center gap-1.5 pointer-events-none select-none"
       aria-hidden="true"
     >

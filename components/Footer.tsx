@@ -13,7 +13,7 @@ const LEGAL = [
   { fr: "Mentions Légales", en: "Legal Notice", es: "Aviso Legal", it: "Note Legali", href: "/legal" },
 ];
 
-export default function Footer() {
+export default function Footer({ onBookClick }: { onBookClick?: () => void }) {
   const { t } = useLang();
   const { content } = useSiteContent(); // Dynamic content from admin
 
@@ -144,9 +144,22 @@ export default function Footer() {
               <ul className="space-y-2.5">
                 {col.links.map((l) => (
                   <li key={l.fr}>
-                    <Link href={l.href}
-                      className="text-fg/40 text-sm hover:text-[#7CB895] transition-colors duration-300"
-                      style={inter}>{t({ fr: l.fr, en: l.en, es: (l as any).es, it: (l as any).it })}</Link>
+                    {l.href.includes("#reservation") ? (
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (onBookClick) onBookClick();
+                        }}
+                        className="text-fg/40 text-sm hover:text-[#7CB895] transition-colors duration-300 text-left"
+                        style={inter}
+                      >
+                        {t({ fr: l.fr, en: l.en, es: (l as any).es, it: (l as any).it })}
+                      </button>
+                    ) : (
+                      <Link href={l.href}
+                        className="text-fg/40 text-sm hover:text-[#7CB895] transition-colors duration-300"
+                        style={inter}>{t({ fr: l.fr, en: l.en, es: (l as any).es, it: (l as any).it })}</Link>
+                    )}
                   </li>
                 ))}
               </ul>

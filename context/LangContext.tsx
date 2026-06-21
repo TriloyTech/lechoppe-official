@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from "react";
 
 export type Lang = "fr" | "en" | "es" | "it";
 
@@ -41,13 +41,37 @@ const Ctx = createContext<LangCtx>({
 export function LangProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>("fr");
 
-  const setLang = useCallback((l: Lang) => setLangState(l), []);
+  useEffect(() => {
+    try {
+      const savedLang = localStorage.getItem("lechoppe_lang") as Lang | null;
+      if (savedLang && LANG_ORDER.includes(savedLang)) {
+        setLangState(savedLang);
+      }
+    } catch (e) {
+      console.error("Failed to load language from localStorage", e);
+    }
+  }, []);
+
+  const setLang = useCallback((l: Lang) => {
+    setLangState(l);
+    try {
+      localStorage.setItem("lechoppe_lang", l);
+    } catch (e) {
+      console.error("Failed to save language to localStorage", e);
+    }
+  }, []);
 
   const toggle = useCallback(
     () =>
       setLangState((prev) => {
         const idx = LANG_ORDER.indexOf(prev);
-        return LANG_ORDER[(idx + 1) % LANG_ORDER.length];
+        const nextLang = LANG_ORDER[(idx + 1) % LANG_ORDER.length];
+        try {
+          localStorage.setItem("lechoppe_lang", nextLang);
+        } catch (e) {
+          console.error("Failed to save language to localStorage", e);
+        }
+        return nextLang;
       }),
     []
   );

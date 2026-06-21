@@ -28,7 +28,7 @@ function useChefItems(): MenuItem[] {
   return items.filter((m) => m.available);
 }
 
-function SuggestionCard({ item, index }: { item: MenuItem; index: number }) {
+function SuggestionCard({ item, index, onBookClick }: { item: MenuItem; index: number; onBookClick?: () => void }) {
   const hasImage = Boolean(item.image_url);
 
   return (
@@ -123,20 +123,23 @@ function SuggestionCard({ item, index }: { item: MenuItem; index: number }) {
             {item.description}
           </p>
           {/* CTA */}
-          <a
-            href="#reservation"
-            className="mt-4 inline-flex items-center gap-1.5 text-[0.6rem] tracking-widest uppercase transition-colors"
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              if (onBookClick) onBookClick();
+            }}
+            className="mt-4 inline-flex items-center gap-1.5 text-[0.6rem] tracking-widest uppercase transition-colors text-left"
             style={{ color: "#7CB895", fontFamily: "var(--font-inter)" }}
           >
             Réserver →
-          </a>
+          </button>
         </div>
       </div>
     </motion.article>
   );
 }
 
-export default function ChefSuggestions() {
+export default function ChefSuggestions({ onBookClick }: { onBookClick?: () => void }) {
   const items = useChefItems();
   const { t } = useLang();
   const bebas: React.CSSProperties = { fontFamily: "var(--font-bebas)", letterSpacing: "0.04em", lineHeight: 0.92 };
@@ -178,7 +181,7 @@ export default function ChefSuggestions() {
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           {items.map((item, i) => (
-            <SuggestionCard key={item.id} item={item} index={i} />
+            <SuggestionCard key={item.id} item={item} index={i} onBookClick={onBookClick} />
           ))}
         </div>
       </div>
