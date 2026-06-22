@@ -88,17 +88,21 @@ export default function FloatingActions({ onBookClick }: { onBookClick?: () => v
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 1.4, type: "spring", stiffness: 300 }}
           whileHover={{ scale: 1.12 }}
-          className="fixed bottom-24 md:bottom-6 right-4 md:right-6 z-50 rounded-full flex items-center justify-center shadow-2xl border border-white/10 backdrop-blur-md transition-colors duration-300"
+          className="fixed bottom-24 md:bottom-6 right-4 md:right-6 z-50 rounded-full flex items-center justify-center shadow-2xl border backdrop-blur-md transition-all duration-300"
           style={{
             width: 52, height: 52,
-            backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
+            backgroundColor: isDark ? "rgba(10, 10, 10, 0.75)" : "rgba(255, 255, 255, 0.9)",
+            borderColor: isDark ? "rgba(124, 184, 149, 0.3)" : "rgba(26, 18, 8, 0.15)",
+            boxShadow: isDark
+              ? "0 0 15px rgba(124, 184, 149, 0.15), 0 4px 20px rgba(0, 0, 0, 0.5)"
+              : "0 0 15px rgba(26, 18, 8, 0.05), 0 4px 20px rgba(26, 18, 8, 0.15)",
           }}
         >
           <AnimatePresence mode="wait">
             {isDark ? (
               <motion.svg key="sun" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }}
                 exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.25 }}
-                viewBox="0 0 24 24" fill="none" stroke="#F3CDA0" strokeWidth="2"
+                viewBox="0 0 24 24" fill="none" stroke="var(--accent-text)" strokeWidth="2"
                 strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
                 <circle cx="12" cy="12" r="5"/>
                 <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
@@ -109,7 +113,7 @@ export default function FloatingActions({ onBookClick }: { onBookClick?: () => v
             ) : (
               <motion.svg key="moon" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }}
                 exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.25 }}
-                viewBox="0 0 24 24" fill="none" stroke="#0A0A0A" strokeWidth="2"
+                viewBox="0 0 24 24" fill="none" stroke="var(--fg)" strokeWidth="2"
                 strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
                 <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
               </motion.svg>

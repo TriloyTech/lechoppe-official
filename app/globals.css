@@ -30,6 +30,8 @@
   --input-border: rgba(255,255,255,0.10);
   --skeleton-a:   #111;
   --skeleton-b:   #1a1a1a;
+  --glass-bg:     rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.08);
 
   /* ── ULTRA MODE design tokens ── */
   --gold:          #D4AF37;
@@ -65,6 +67,8 @@ html.light {
   --input-border: rgba(26,18,8,0.15);
   --skeleton-a:   #EDE8E2;
   --skeleton-b:   #E0D8D0;
+  --glass-bg:     rgba(255, 255, 255, 0.45);
+  --glass-border: rgba(26, 18, 8, 0.10);
 }
 
 /* ── Apply theme ── */

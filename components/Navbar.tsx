@@ -26,7 +26,7 @@ function smoothScrollTo(id: string) {
 }
 
 /* ── Language Dropdown Component ── */
-function LangDropdown({ compact = false }: { compact?: boolean }) {
+function LangDropdown({ scrolledOrOpen = false }: { scrolledOrOpen?: boolean }) {
   const { lang, setLang, t } = useLang();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -45,12 +45,12 @@ function LangDropdown({ compact = false }: { compact?: boolean }) {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="text-[0.75rem] md:text-sm tracking-wide px-3 md:px-5 py-2 rounded flex items-center gap-2 transition-all duration-300 flex-shrink-0 whitespace-nowrap"
+        className="text-[0.75rem] md:text-sm tracking-wide px-3 md:px-5 py-2 rounded flex items-center gap-2 transition-all duration-300 flex-shrink-0 whitespace-nowrap backdrop-blur-md"
         style={{
-          background: "linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.05) 100%)",
-          border: "1px solid rgba(255,255,255,0.1)",
-          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1)",
-          color: "rgba(255,255,255,0.9)",
+          background: scrolledOrOpen ? "var(--glass-bg)" : "linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.05) 100%)",
+          border: scrolledOrOpen ? "1px solid var(--glass-border)" : "1px solid rgba(255,255,255,0.1)",
+          boxShadow: scrolledOrOpen ? "var(--card-shadow)" : "inset 0 1px 0 rgba(255,255,255,0.1)",
+          color: scrolledOrOpen ? "var(--fg)" : "rgba(255,255,255,0.9)",
           fontFamily: "var(--font-inter)",
         }}
       >
@@ -203,7 +203,9 @@ export default function Navbar({ onBookClick }: { onBookClick?: () => void }) {
               key={link.fr}
               href={link.href}
               onClick={(e) => handleNavClick(e, link.href)}
-              className="text-xs xl:text-sm tracking-[0.15em] xl:tracking-[0.2em] text-fg/55 hover:text-[#7CB895] transition-colors duration-300 cursor-pointer whitespace-nowrap flex-shrink-0"
+              className={`text-xs xl:text-sm tracking-[0.15em] xl:tracking-[0.2em] hover:text-[#7CB895] transition-colors duration-300 cursor-pointer whitespace-nowrap flex-shrink-0 ${
+                scrolled || open ? "text-fg/55" : "text-white/60"
+              }`}
               style={inter}
             >
               {getNavLabel(link)}
@@ -292,7 +294,7 @@ export default function Navbar({ onBookClick }: { onBookClick?: () => void }) {
           </motion.a>
 
           {/* Language dropdown */}
-          <LangDropdown />
+          <LangDropdown scrolledOrOpen={scrolled || open} />
 
           {/* ── Hamburger button (mobile only) ── */}
           <button
@@ -305,17 +307,23 @@ export default function Navbar({ onBookClick }: { onBookClick?: () => void }) {
             <motion.span
               animate={open ? { rotate: 45, y: 8 } : { rotate: 0, y: 0 }}
               transition={{ duration: 0.25 }}
-              className="block w-5 h-[1.5px] bg-[var(--fg)] origin-center"
+              className={`block w-5 h-[1.5px] origin-center ${
+                scrolled || open ? "bg-[var(--fg)]" : "bg-white"
+              }`}
             />
             <motion.span
               animate={open ? { opacity: 0, scaleX: 0 } : { opacity: 1, scaleX: 1 }}
               transition={{ duration: 0.2 }}
-              className="block w-5 h-[1.5px] bg-[var(--fg)]"
+              className={`block w-5 h-[1.5px] ${
+                scrolled || open ? "bg-[var(--fg)]" : "bg-white"
+              }`}
             />
             <motion.span
               animate={open ? { rotate: -45, y: -8 } : { rotate: 0, y: 0 }}
               transition={{ duration: 0.25 }}
-              className="block w-5 h-[1.5px] bg-[var(--fg)] origin-center"
+              className={`block w-5 h-[1.5px] origin-center ${
+                scrolled || open ? "bg-[var(--fg)]" : "bg-white"
+              }`}
             />
           </button>
         </div>

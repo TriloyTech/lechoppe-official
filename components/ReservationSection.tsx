@@ -34,7 +34,7 @@ function StepIndicator({ step, total }: { step: number; total: number }) {
       {Array.from({ length: total }).map((_, i) => (
         <div key={i} className="flex items-center gap-2">
           <motion.div
-            animate={{ width: i === step ? 28 : 8, backgroundColor: i <= step ? "#7CB895" : "rgba(255,255,255,0.12)" }}
+            animate={{ width: i === step ? 28 : 8, backgroundColor: i <= step ? "#7CB895" : "var(--border-strong)" }}
             transition={{ duration: 0.3 }}
             className="h-2 rounded-full"
           />
@@ -45,7 +45,7 @@ function StepIndicator({ step, total }: { step: number; total: number }) {
 }
 
 /* ── Step 0: Date picker ─────────────────────────────────────────────────── */
-function StepDate({ d, next, t }: { d: Draft; next: (v: Partial<Draft>) => void; t: (fr: string, en: string) => string }) {
+function StepDate({ d, next, t }: { d: Draft; next: (v: Partial<Draft>) => void; t: any }) {
   const [date, setDate] = useState(d.date);
   const { lang } = useLang();
   const [mounted, setMounted] = useState(false);
@@ -78,14 +78,14 @@ function StepDate({ d, next, t }: { d: Draft; next: (v: Partial<Draft>) => void;
         <div className="flex gap-2 min-w-max">
           {!mounted ? (
             Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex-none w-[76px] h-[58px] rounded-xl border border-white/5 bg-white/[0.01] animate-pulse" />
+              <div key={i} className="flex-none w-[76px] h-[58px] rounded-xl border border-theme bg-surface2/30 animate-pulse" />
             ))
           ) : (
             days.map((dt) => {
               const v = iso(dt); const sel = date === v;
               return (
                 <button key={v} onClick={() => setDate(v)}
-                  className={`flex-none flex flex-col items-center justify-center py-2 px-4 min-w-[76px] rounded-xl border transition-all ${sel ? "bg-[#7CB895] text-[#0A0A0A] border-[#7CB895] shadow-[0_0_12px_rgba(124,184,149,0.3)]" : "border-white/10 bg-white/[0.02] hover:border-[#7CB895]/50 hover:bg-white/[0.05]"}`}
+                  className={`flex-none flex flex-col items-center justify-center py-2 px-4 min-w-[76px] rounded-xl border transition-all ${sel ? "bg-[#7CB895] text-[#0A0A0A] border-[#7CB895] shadow-[0_0_12px_rgba(124,184,149,0.3)]" : "border-theme bg-surface2/30 hover:border-[#7CB895]/50 hover:bg-surface2/70"}`}
                   style={{ fontFamily: "var(--font-inter)" }}>
                   <span className={`text-[0.55rem] uppercase tracking-wider mb-1 ${sel ? "text-[#0A0A0A]/70 font-bold" : "text-fg/40"}`}>
                     {fmtWeekday(dt)}
@@ -125,7 +125,7 @@ function StepGuests({ d, next, back, t }: { d: Draft; next: (v: Partial<Draft>) 
       <div className="grid grid-cols-5 gap-2 mb-4">
         {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
           <button key={n} onClick={() => setGuests(n)}
-            className={`py-3 rounded-xl text-base font-semibold border transition-all ${guests === n ? "bg-[#7CB895] text-[#0A0A0A] border-[#7CB895]" : "border-white/8 bg-white/[0.03] text-fg/60 hover:border-[#7CB895]/40"}`}>
+            className={`py-3 rounded-xl text-base font-semibold border transition-all ${guests === n ? "bg-[#7CB895] text-[#0A0A0A] border-[#7CB895]" : "border-theme bg-surface2/30 text-fg-muted hover:border-[#7CB895]/40"}`}>
             {n}
           </button>
         ))}
@@ -134,7 +134,7 @@ function StepGuests({ d, next, back, t }: { d: Draft; next: (v: Partial<Draft>) 
       {/* Large group toggle */}
       <button
         onClick={() => setGuests(guests <= 10 ? 12 : guests)}
-        className={`w-full py-2.5 mb-3 text-xs tracking-widest uppercase rounded-xl border transition-all ${isLarge ? "bg-[#F3CDA0]/10 border-[#F3CDA0]/30 text-[#F3CDA0]" : "border-white/8 text-fg/40 hover:border-white/20"}`}
+        className={`w-full py-2.5 mb-3 text-xs tracking-widest uppercase rounded-xl border transition-all ${isLarge ? "bg-[#F3CDA0]/10 border-[#F3CDA0]/30 text-[#F3CDA0]" : "border-theme text-fg-subtle hover:border-theme-strong"}`}
         style={inter}
       >
         {isLarge ? `✓ ${t({ fr: "Grand groupe", en: "Large group", es: "Grupo grande", it: "Gruppo grande" })} — ${guests} ${t({ fr: "personnes", en: "guests", es: "personas", it: "ospiti" })}` : t({ fr: "+ de 10 personnes?", en: "More than 10 guests?", es: "¿Más de 10 personas?", it: "Più di 10 ospiti?" })}
@@ -146,7 +146,7 @@ function StepGuests({ d, next, back, t }: { d: Draft; next: (v: Partial<Draft>) 
           <div className="flex items-center gap-3 mb-3">
             <button
               onClick={() => setGuests((g) => Math.max(11, g - 1))}
-              className="w-9 h-9 flex items-center justify-center rounded-full border border-white/15 text-fg/60 hover:border-[#7CB895]/40 hover:text-[#7CB895] transition-all text-lg font-light"
+              className="w-9 h-9 flex items-center justify-center rounded-full border border-theme-strong text-fg-muted hover:border-[#7CB895]/40 hover:text-[#7CB895] transition-all text-lg font-light"
             >−</button>
             <div className="flex-1 text-center">
               <span className="text-[2.5rem] text-[#7CB895]" style={{ fontFamily: "var(--font-bebas)", letterSpacing: "0.06em" }}>{guests}</span>
@@ -154,14 +154,14 @@ function StepGuests({ d, next, back, t }: { d: Draft; next: (v: Partial<Draft>) 
             </div>
             <button
               onClick={() => setGuests((g) => Math.min(40, g + 1))}
-              className="w-9 h-9 flex items-center justify-center rounded-full border border-white/15 text-fg/60 hover:border-[#7CB895]/40 hover:text-[#7CB895] transition-all text-lg font-light"
+              className="w-9 h-9 flex items-center justify-center rounded-full border border-theme-strong text-fg-muted hover:border-[#7CB895]/40 hover:text-[#7CB895] transition-all text-lg font-light"
             >+</button>
           </div>
           <input
             type="range" min={11} max={40} value={guests}
             onChange={(e) => setGuests(Number(e.target.value))}
             className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
-            style={{ accentColor: "#7CB895", background: `linear-gradient(to right, #7CB895 ${((guests - 11) / 29) * 100}%, rgba(255,255,255,0.1) 0%)` }}
+            style={{ accentColor: "#7CB895", background: `linear-gradient(to right, #7CB895 ${((guests - 11) / 29) * 100}%, var(--border-strong) 0%)` }}
           />
           <div className="flex justify-between text-[0.55rem] text-fg/25 mt-1.5" style={inter}>
             <span>11</span><span>25</span><span>40</span>
@@ -182,7 +182,7 @@ function StepGuests({ d, next, back, t }: { d: Draft; next: (v: Partial<Draft>) 
       )}
 
       <div className="flex gap-3 mt-auto">
-        <button onClick={back} className="flex-1 py-4 border border-white/10 text-fg/50 text-sm tracking-widest uppercase rounded-xl hover:bg-white/5 transition-colors" style={inter}>← {t({ fr: "Retour", en: "Back", es: "Volver", it: "Indietro" })}</button>
+        <button onClick={back} className="flex-1 py-4 border border-theme text-fg-muted text-sm tracking-widest uppercase rounded-xl hover:bg-surface2/50 transition-colors" style={inter}>← {t({ fr: "Retour", en: "Back", es: "Volver", it: "Indietro" })}</button>
         <button onClick={() => next({ guests })} className="flex-1 py-4 bg-[#7CB895] text-[#0A0A0A] font-semibold text-sm tracking-widest uppercase rounded-xl hover:bg-[#6aaa83] transition-colors" style={inter}>{t({ fr: "Suivant →", en: "Next →", es: "Siguiente →", it: "Avanti →" })}</button>
       </div>
     </div>
@@ -198,7 +198,7 @@ function StepTime({ d, next, back, t }: { d: Draft; next: (v: Partial<Draft>) =>
       <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
         {slots.map((s) => (
           <button key={s} onClick={() => setTime(s)}
-            className={`py-3 rounded-xl text-sm border transition-all ${time === s ? "bg-[#7CB895] text-[#0A0A0A] border-[#7CB895] font-semibold" : "border-white/8 bg-white/[0.03] text-fg/60 hover:border-[#7CB895]/40"}`}
+            className={`py-3 rounded-xl text-sm border transition-all ${time === s ? "bg-[#7CB895] text-[#0A0A0A] border-[#7CB895] font-semibold" : "border-theme bg-surface2/30 text-fg-muted hover:border-[#7CB895]/40"}`}
             style={{ fontFamily: "var(--font-inter)" }}>{s}</button>
         ))}
       </div>
@@ -211,7 +211,7 @@ function StepTime({ d, next, back, t }: { d: Draft; next: (v: Partial<Draft>) =>
       <SlotGroup label={t({ fr: "Déjeuner", en: "Lunch", es: "Almuerzo", it: "Pranzo" })} slots={SLOTS_LUNCH} />
       <SlotGroup label={t({ fr: "Dîner", en: "Dinner", es: "Cena", it: "Cena" })} slots={SLOTS_DINNER} />
       <div className="flex gap-3 mt-auto pt-4">
-        <button onClick={back} className="flex-1 py-4 border border-white/10 text-fg/50 text-sm tracking-widest uppercase rounded-xl hover:bg-white/5 transition-colors" style={{ fontFamily: "var(--font-inter)" }}>← {t({ fr: "Retour", en: "Back", es: "Volver", it: "Indietro" })}</button>
+        <button onClick={back} className="flex-1 py-4 border border-theme text-fg-muted text-sm tracking-widest uppercase rounded-xl hover:bg-surface2/50 transition-colors" style={{ fontFamily: "var(--font-inter)" }}>← {t({ fr: "Retour", en: "Back", es: "Volver", it: "Indietro" })}</button>
         <button disabled={!time} onClick={() => next({ time })} className="flex-1 py-4 bg-[#7CB895] text-[#0A0A0A] font-semibold text-sm tracking-widest uppercase rounded-xl disabled:opacity-30 hover:bg-[#6aaa83] transition-colors" style={{ fontFamily: "var(--font-inter)" }}>{t({ fr: "Suivant →", en: "Next →", es: "Siguiente →", it: "Avanti →" })}</button>
       </div>
     </div>
@@ -261,7 +261,7 @@ function StepContact({ d, onSubmit, back, t }: {
         </div>
         {err && <p className="text-red-400 text-xs mb-3">⚠ {err}</p>}
         <div className="flex gap-3 mt-auto">
-          <button onClick={back} className="flex-1 py-4 border border-white/10 text-fg/50 text-sm tracking-widest uppercase rounded-xl hover:bg-white/5 transition-colors" style={{ fontFamily: "var(--font-inter)" }}>← {t({ fr: "Retour", en: "Back", es: "Volver", it: "Indietro" })}</button>
+          <button onClick={back} className="flex-1 py-4 border border-theme text-fg-muted text-sm tracking-widest uppercase rounded-xl hover:bg-surface2/50 transition-colors" style={{ fontFamily: "var(--font-inter)" }}>← {t({ fr: "Retour", en: "Back", es: "Volver", it: "Indietro" })}</button>
           <button onClick={handleConfirm} className="flex-1 py-4 bg-[#F3CDA0] text-[#0A0A0A] font-semibold text-sm tracking-widest uppercase rounded-xl hover:bg-[#e8bb88] transition-colors" style={{ fontFamily: "var(--font-inter)" }}>
             {t({ fr: "Confirmer ✓", en: "Confirm ✓", es: "Confirmar ✓", it: "Conferma ✓" })}
           </button>
@@ -397,7 +397,7 @@ export default function ReservationSection({ onClose }: { onClose: () => void })
         {/* Floating close button */}
         <button
           onClick={onClose}
-          className="absolute top-6 right-6 z-[110] p-2 text-fg/50 hover:text-fg hover:bg-white/10 rounded-full transition-all duration-200"
+          className="absolute top-6 right-6 z-[110] p-2 text-fg-subtle hover:text-fg hover:bg-surface2/50 rounded-full transition-all duration-200"
           aria-label="Close reservation"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

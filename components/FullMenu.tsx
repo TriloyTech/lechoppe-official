@@ -114,9 +114,9 @@ function OrderNowButton() {
             transition={{ duration: 0.18, ease: "easeOut" }}
             className="absolute bottom-full mb-2 right-0 z-50 rounded-xl p-3 min-w-[180px]"
             style={{
-              background: "rgba(12,12,12,0.96)",
-              border: "1px solid rgba(124,184,149,0.28)",
-              boxShadow: "0 8px 32px rgba(0,0,0,0.7), 0 0 20px rgba(124,184,149,0.08)",
+              background: "var(--nav-bg)",
+              border: "1px solid var(--border-strong)",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
               backdropFilter: "blur(16px)",
             }}
           >
@@ -124,12 +124,12 @@ function OrderNowButton() {
             <div
               className="absolute -bottom-[5px] right-4 w-2.5 h-2.5 rotate-45"
               style={{
-                background: "rgba(18,18,18,0.97)",
-                borderRight: "1px solid rgba(124,184,149,0.28)",
-                borderBottom: "1px solid rgba(124,184,149,0.28)",
+                background: "var(--nav-bg)",
+                borderRight: "1px solid var(--border-strong)",
+                borderBottom: "1px solid var(--border-strong)",
               }}
             />
-            <p className="text-[0.48rem] tracking-[0.3em] uppercase text-white/30 mb-1.5" style={{ fontFamily: "var(--font-inter)" }}>
+            <p className="text-[0.48rem] tracking-[0.3em] uppercase text-fg-subtle mb-1.5" style={{ fontFamily: "var(--font-inter)" }}>
               {t({ fr: "à emporter · commandez", en: "takeaway · order", es: "para llevar · pedir", it: "da asporto · ordinare" })}
             </p>
             <a
@@ -146,7 +146,7 @@ function OrderNowButton() {
                 fontFamily: "var(--font-inter)",
                 background: copied ? "rgba(124,184,149,0.2)" : "rgba(124,184,149,0.07)",
                 border: "1px solid rgba(124,184,149,0.28)",
-                color: copied ? "#7CB895" : "rgba(124,184,149,0.55)",
+                color: copied ? "var(--sage)" : "var(--fg-muted)",
               }}
             >
               {copied ? t({ fr: "✓ Copié", en: "✓ Copied", es: "✓ Copiado", it: "✓ Copiato" }) : t({ fr: "Copier le numéro", en: "Copy Number", es: "Copiar número", it: "Copia numero" })}
@@ -189,9 +189,12 @@ function MenuCard({ item }: { item: MenuItem }) {
       whileHover={{ scale: 1.03, transition: { duration: 0.22, ease: "easeOut" } }}
       className={`group relative flex flex-col overflow-hidden rounded-2xl border transition-all duration-300 cursor-default ${
         sold
-          ? "border-white/5  bg-white/[0.02] opacity-55"
-          : "border-white/8  bg-white/[0.03] hover:border-[#7CB895]/30 hover:shadow-[0_8px_40px_rgba(124,184,149,0.08)]"
+          ? "border-theme bg-surface2/40 opacity-55"
+          : "border-theme bg-surface hover:border-[#7CB895]/30"
       }`}
+      style={{
+        boxShadow: "var(--card-shadow)",
+      }}
     >
       {/* Image area */}
       <div className="relative aspect-video overflow-hidden bg-white/[0.03]">
@@ -277,7 +280,7 @@ function MenuCard({ item }: { item: MenuItem }) {
       <div className="flex flex-col flex-1 p-5 gap-3">
         <div className="flex items-start justify-between gap-3">
           <h3
-            className="text-white/90 text-lg leading-snug group-hover:text-[#F3CDA0] transition-colors duration-300"
+            className="text-fg text-lg leading-snug group-hover:text-peach transition-colors duration-300"
             style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontStyle: "italic" }}
           >
             {item.name}
@@ -287,7 +290,7 @@ function MenuCard({ item }: { item: MenuItem }) {
 
         {item.description && (
           <p
-            className="text-white/40 text-xs leading-relaxed line-clamp-2"
+            className="text-fg-muted text-xs leading-relaxed line-clamp-2"
             style={{ fontFamily: "var(--font-inter)" }}
           >
             {item.description}
@@ -297,7 +300,7 @@ function MenuCard({ item }: { item: MenuItem }) {
         {/* Category tag + order CTA row */}
         <div className="mt-auto flex items-center justify-between gap-2">
           <span
-            className="text-[0.55rem] tracking-[0.3em] uppercase text-[#7CB895]/60"
+            className="text-[0.55rem] tracking-[0.3em] uppercase text-mint/60"
             style={{ fontFamily: "var(--font-inter)" }}
           >
             {item.category}
@@ -317,12 +320,12 @@ function MenuRow({ item, index }: { item: MenuItem; index: number }) {
   return (
     <motion.div
       variants={cardVariants}
-      className={`group flex items-end gap-2 py-3 border-b border-white/[0.04] ${sold ? "opacity-40" : ""}`}
+      className={`group flex items-end gap-2 py-3 border-b border-theme ${sold ? "opacity-40" : ""}`}
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap mb-0.5">
           <span
-            className="text-white/90 text-base group-hover:text-[#F3CDA0] transition-colors duration-300"
+            className="text-fg text-base group-hover:text-peach transition-colors duration-300"
             style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontStyle: "italic" }}
           >
             {item.name}
@@ -332,7 +335,7 @@ function MenuRow({ item, index }: { item: MenuItem; index: number }) {
               style={{ fontFamily: "var(--font-inter)" }}>Épuisé</span>
           )}
           {item.chef_suggestion && !sold && (
-            <span className="text-[#F3CDA0] text-[0.65rem]" title="Chef's Pick">★</span>
+            <span className="text-peach text-[0.65rem]" title="Chef's Pick">★</span>
           )}
           {(item.takeaway_available ?? item.category !== "drink") && !sold && (
             <svg width="10" height="10" viewBox="0 0 24 24" fill="rgba(124,184,149,0.45)" aria-label="À emporter">
@@ -341,13 +344,13 @@ function MenuRow({ item, index }: { item: MenuItem; index: number }) {
           )}
         </div>
         {item.description && (
-          <p className="text-white/30 text-xs leading-relaxed" style={{ fontFamily: "var(--font-inter)" }}>
+          <p className="text-fg-muted text-xs leading-relaxed" style={{ fontFamily: "var(--font-inter)" }}>
             {item.description}
           </p>
         )}
       </div>
-      <span className="shrink-0 flex-1 max-w-[80px] mb-1.5 border-b border-dotted border-white/20 group-hover:border-[#F3CDA0]/30 transition-colors" aria-hidden />
-      <span className="shrink-0 text-[#F3CDA0] text-sm font-medium tabular-nums" style={{ fontFamily: "var(--font-inter)" }}>
+      <span className="shrink-0 flex-1 max-w-[80px] mb-1.5 border-b border-dotted border-theme-strong group-hover:border-peach/30 transition-colors" aria-hidden />
+      <span className="shrink-0 text-peach text-sm font-medium tabular-nums" style={{ fontFamily: "var(--font-inter)" }}>
         {fmt(item.price)}
       </span>
     </motion.div>
@@ -484,7 +487,7 @@ export default function FullMenu() {
   }
 
   return (
-    <section id="menu" className="relative py-24 bg-[#050505] overflow-hidden">
+    <section id="menu" className="relative py-24 bg-bg overflow-hidden">
       {/* Noise texture */}
       <div className="absolute inset-0 opacity-[0.015] pointer-events-none"
         style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")", backgroundSize: "128px 128px" }}
@@ -492,24 +495,23 @@ export default function FullMenu() {
 
       <div className="max-w-5xl mx-auto px-6 md:px-12">
 
-        {/* ── Header ── */}
         <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }} transition={{ duration: 0.7 }} className="text-center mb-12">
           <span className="block text-[#7CB895] text-[0.65rem] tracking-[0.45em] uppercase mb-4"
             style={{ fontFamily: "var(--font-inter)" }}>
             {t({ fr: "Notre Carte", en: "Our Menu", es: "Nuestra Carta", it: "Il Nostro Menù" })}
           </span>
-          <h2 className="text-[clamp(3.5rem,10vw,8rem)] text-white/90 uppercase mb-4" style={bebas}>
+          <h2 className="text-[clamp(3.5rem,10vw,8rem)] text-fg uppercase mb-4" style={bebas}>
             {t({ fr: "La", en: "The", es: "La", it: "Il" })}{" "}<span style={{ color: "#7CB895" }}>{t({ fr: "Carte", en: "Menu", es: "Carta", it: "Menù" })}</span>
           </h2>
-          <p className="text-white/30 text-xs tracking-widest" style={{ fontFamily: "var(--font-inter)" }}>
+          <p className="text-fg-subtle text-xs tracking-widest" style={{ fontFamily: "var(--font-inter)" }}>
             ★ = {t({ fr: "Suggestion du Chef", en: "Chef's Recommendation", es: "Recomendación del Chef", it: "Raccomandazione dello Chef" })}
           </p>
         </motion.div>
 
         {/* ── Sticky filter bar ── */}
         <div className="sticky top-0 z-30 -mx-6 md:-mx-12 px-6 md:px-12 py-3 mb-2"
-          style={{ backgroundColor: "rgba(5,5,5,0.92)", backdropFilter: "blur(12px)" }}>
+          style={{ backgroundColor: "var(--nav-bg)", backdropFilter: "blur(12px)" }}>
           <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
             {ALL_TABS.map((cat) => {
               const isActive = active === cat.key;
@@ -517,12 +519,12 @@ export default function FullMenu() {
                 <button key={cat.key} onClick={() => setActive(cat.key)}
                   className={`shrink-0 px-4 py-2 text-xs tracking-[0.2em] uppercase rounded-full border transition-all duration-200 ${
                     isActive
-                      ? "bg-[#7CB895] text-[#050505] border-[#7CB895] font-semibold"
-                      : "border-white/10 text-white/40 hover:border-white/25 hover:text-white/70"
+                      ? "bg-mint text-charcoal border-mint font-semibold"
+                      : "border-theme text-fg-muted hover:text-fg bg-surface2/50"
                   }`}
                   style={{
                     fontFamily: "var(--font-inter)",
-                    ...(isActive ? {} : { backdropFilter: "blur(12px)", background: "rgba(255,255,255,0.04)" })
+                    backdropFilter: "blur(12px)",
                   }}>
                   {cat.emoji} {t(cat.fr, cat.en)}
                 </button>
@@ -541,7 +543,7 @@ export default function FullMenu() {
               {allGroups.map(renderGroup)}
               {allGroups.length === 0 && (
                 <div className="text-center py-20">
-                  <p className="text-white/20 text-sm" style={{ fontFamily: "var(--font-inter)" }}>
+                  <p className="text-fg-ghost text-sm" style={{ fontFamily: "var(--font-inter)" }}>
                     {t({ fr: "Aucun article dans cette catégorie.", en: "No items in this category.", es: "No hay artículos en esta categoría.", it: "Nessun articolo in questa categoria." })}
                   </p>
                 </div>
@@ -551,7 +553,7 @@ export default function FullMenu() {
         )}
 
         {/* Bottom note */}
-        <p className="mt-16 text-center text-white/15 text-[0.6rem] tracking-widest uppercase"
+        <p className="mt-16 text-center text-fg-ghost text-[0.6rem] tracking-widest uppercase"
           style={{ fontFamily: "var(--font-inter)" }}>
           {t({
             fr: "Prix TTC · Service non compris · Allergènes disponibles sur demande",
