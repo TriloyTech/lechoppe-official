@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { useLang } from "@/context/LangContext";
 import { useSiteContent } from "@/lib/hooks/useSiteContent";
 
-const DELIVEROO_URL = "https://deliveroo.fr/fr/menu/paris/saint-ambroise/l-echoppe-de-paris";
+const DELIVEROO_URL = "https://deliveroo.fr/fr/menu/paris/saint-ambroise/lechoppe-de-paris";
 
 const LEGAL = [
   { fr: "Politique de Confidentialité", en: "Privacy Policy", es: "Política de Privacidad", it: "Privacy Policy", href: "/privacy" },

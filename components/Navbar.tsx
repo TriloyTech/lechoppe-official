@@ -18,7 +18,7 @@ const NAV_LINKS = [
 // Separate takeaway link so it can have distinct styling
 const TAKEAWAY_LINK = { fr: "À EMPORTER", en: "TAKEAWAY", es: "PARA LLEVAR", it: "DA ASPORTO", href: "#menu" };
 
-const DELIVEROO_URL = "https://deliveroo.fr/fr/menu/paris/saint-ambroise/l-echoppe-de-paris";
+const DELIVEROO_URL = "https://deliveroo.fr/fr/menu/paris/saint-ambroise/lechoppe-de-paris";
 
 function smoothScrollTo(id: string) {
   const el = document.getElementById(id.replace("#", ""));
