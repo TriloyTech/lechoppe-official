@@ -81,13 +81,13 @@ export default function PromotionModal({ booking, onClose }: Props) {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.92 }}
         transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] as const }}
-        className="relative z-10 w-full max-w-md bg-[#080808] border border-white/10 rounded-2xl overflow-hidden shadow-2xl max-h-[90dvh] overflow-y-auto custom-scrollbar"
+        className="relative z-10 w-full max-w-md bg-card-bg border border-theme rounded-2xl overflow-hidden shadow-2xl max-h-[90dvh] overflow-y-auto custom-scrollbar"
       >
         {/* Always-visible ✕ close button — top-right corner */}
         <button
           onClick={onClose}
           aria-label="Fermer"
-          className="absolute top-3 right-3 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-white/8 hover:bg-white/15 text-white/50 hover:text-white transition-all"
+          className="absolute top-3 right-3 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-surface2 hover:bg-surface border border-theme text-fg-muted hover:text-fg transition-all"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
             <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -99,14 +99,14 @@ export default function PromotionModal({ booking, onClose }: Props) {
           style={{ background: "#7CB895" }} />
 
         {/* Header */}
-        <div className="relative px-6 pt-6 pb-4 text-center border-b border-white/6 flex flex-col items-center">
+        <div className="relative px-6 pt-6 pb-4 text-center border-b border-theme flex flex-col items-center">
           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}
             transition={{ delay: 0.2, type: "spring", stiffness: 300 }}
             className="text-4xl mb-3">🎁</motion.div>
-          <h2 className="text-[1.8rem] text-white/90 uppercase mb-1" style={bebas}>
+          <h2 className="text-[1.8rem] text-fg uppercase mb-1" style={bebas}>
             {t({ fr: "Offre Exclusive", en: "Exclusive Offer", es: "Oferta Exclusiva", it: "Offerta Esclusiva" })}
           </h2>
-          <p className="text-white/35 text-[0.65rem] tracking-widest uppercase mb-5">
+          <p className="text-fg-muted text-[0.65rem] tracking-widest uppercase mb-5">
             {t({ fr: "Merci pour votre réservation,", en: "Thanks for booking,", es: "Gracias por su reserva,", it: "Grazie per la prenotazione," })} {booking.name.split(" ")[0]} !
           </p>
           
@@ -124,7 +124,7 @@ export default function PromotionModal({ booking, onClose }: Props) {
                   {t({ fr: "Capture d'écran requise", en: "Screenshot Required", es: "Captura de pantalla requerida", it: "Screenshot richiesto" })}
                 </span>
               </div>
-              <p className="text-white/70 text-[0.7rem] leading-relaxed">
+              <p className="text-fg-muted text-[0.7rem] leading-relaxed">
                 {t({
                   fr: "Prenez une capture d'écran de cette page et présentez-la au restaurant pour profiter de votre réduction.",
                   en: "Take a screenshot of this page and show it at the restaurant to get your discount.",
@@ -156,18 +156,18 @@ export default function PromotionModal({ booking, onClose }: Props) {
                 >
                   {offer.discount}%
                 </motion.div>
-                <p className="text-white/50 text-[0.65rem] tracking-widest uppercase mt-1">
+                <p className="text-fg-muted text-[0.65rem] tracking-widest uppercase mt-1">
                   {t({ fr: "de réduction sur votre prochain repas", en: "discount on your next meal", es: "de descuento en su próxima comida", it: "di sconto sul prossimo pasto" })}
                 </p>
               </div>
 
               {/* Description */}
-              <p className="text-white/60 text-sm leading-relaxed text-center mb-6">
+              <p className="text-fg-muted text-sm leading-relaxed text-center mb-6">
                 {offer.description}
               </p>
 
               {/* Booking summary */}
-              <div className="bg-white/[0.03] border border-white/6 rounded-xl p-4 mb-5 grid grid-cols-2 gap-3">
+              <div className="bg-surface2 border border-theme rounded-xl p-4 mb-5 grid grid-cols-2 gap-3">
                 {[
                   { k: t({ fr: "Nom", en: "Name", es: "Nombre", it: "Nome" }), v: booking.name },
                   { k: t({ fr: "Couverts", en: "Guests", es: "Comensales", it: "Ospiti" }), v: `${booking.guests} pers.` },
@@ -180,8 +180,8 @@ export default function PromotionModal({ booking, onClose }: Props) {
                   { k: t({ fr: "Heure", en: "Time", es: "Hora", it: "Ora" }), v: booking.time },
                 ].map(({ k, v }) => (
                   <div key={k}>
-                    <div className="text-white/25 text-[0.6rem] tracking-widest uppercase">{k}</div>
-                    <div className="text-white/80 text-sm font-medium">{v}</div>
+                    <div className="text-fg-muted text-[0.6rem] tracking-widest uppercase">{k}</div>
+                    <div className="text-fg text-sm font-medium">{v}</div>
                   </div>
                 ))}
               </div>
@@ -191,14 +191,14 @@ export default function PromotionModal({ booking, onClose }: Props) {
                 onClick={copyCode}
                 className="w-full py-4 border-2 border-dashed border-[#7CB895]/50 hover:border-[#7CB895] rounded-xl text-center transition-all group"
               >
-                <p className="text-white/30 text-[0.55rem] tracking-[0.3em] uppercase mb-1">
+                <p className="text-fg-muted text-[0.55rem] tracking-[0.3em] uppercase mb-1">
                   {t({ fr: "Code promo — cliquez pour copier", en: "Promo code — click to copy", es: "Código promo — click para copiar", it: "Codice promo — clicca per copiare" })}
                 </p>
                 <p className="text-[1.8rem] text-[#7CB895] tracking-[0.15em]" style={bebas}>
                   {copied ? t({ fr: "✓ COPIÉ !", en: "✓ COPIED!", es: "✓ ¡COPIADO!", it: "✓ COPIATO!" }) : offer.code}
                 </p>
                 {offer.valid_until && (
-                  <p className="text-white/20 text-[0.55rem] mt-1">
+                  <p className="text-fg-muted text-[0.55rem] mt-1">
                     {t({ fr: "Valable jusqu'au", en: "Valid until", es: "Válido hasta el", it: "Valido fino al" })}{" "}
                     {new Intl.DateTimeFormat(lang === "en" ? "en-GB" : lang === "es" ? "es-ES" : lang === "it" ? "it-IT" : "fr-FR", { day: "numeric", month: "long", year: "numeric" }).format(
                       new Date(offer.valid_until)
@@ -208,7 +208,7 @@ export default function PromotionModal({ booking, onClose }: Props) {
               </button>
             </>
           ) : (
-            <p className="text-center text-white/30 text-sm py-10">
+            <p className="text-center text-fg-muted text-sm py-10">
               {t({ fr: "Aucune offre disponible actuellement.", en: "No offers available right now.", es: "No hay ofertas disponibles actualmente.", it: "Nessuna offerta disponibile al momento." })}
             </p>
           )}

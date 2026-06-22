@@ -121,14 +121,14 @@ function Stars({ n, size = 14 }: { n: number; size?: number }) {
           <defs>
             <linearGradient id="hg2">
               <stop offset="50%" stopColor={GOLD} />
-              <stop offset="50%" stopColor="rgba(255,255,255,0.12)" />
+              <stop offset="50%" stopColor="var(--border-strong)" />
             </linearGradient>
           </defs>
           <path d="M8 1.2l1.8 3.6 4 .6-2.9 2.8.7 4L8 10.1l-3.6 2.1.7-4L2.2 5.4l4-.6z" fill="url(#hg2)" />
         </svg>
       )}
       {Array.from({ length: empty }).map((_, i) => (
-        <svg key={`e${i}`} width={size} height={size} viewBox="0 0 16 16" fill="rgba(255,255,255,0.12)">
+        <svg key={`e${i}`} width={size} height={size} viewBox="0 0 16 16" fill="var(--border-strong)">
           <path d="M8 1.2l1.8 3.6 4 .6-2.9 2.8.7 4L8 10.1l-3.6 2.1.7-4L2.2 5.4l4-.6z" />
         </svg>
       ))}
@@ -147,11 +147,12 @@ function ReviewCard({ review }: { review: GoogleReview }) {
 
   return (
     <article
-      className="relative shrink-0 w-[310px] mx-3 p-6 rounded-2xl flex flex-col gap-4 select-none"
+      className="relative shrink-0 w-[310px] mx-3 p-6 rounded-2xl flex flex-col gap-4 select-none border-theme"
       style={{
-        background: "linear-gradient(145deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%)",
-        border: "1px solid rgba(255,255,255,0.07)",
-        boxShadow: "0 4px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)",
+        backgroundColor: "var(--card-bg)",
+        borderWidth: "1px",
+        borderStyle: "solid",
+        boxShadow: "var(--card-shadow)",
       }}
     >
       {/* Google badge top-right */}
@@ -164,14 +165,14 @@ function ReviewCard({ review }: { review: GoogleReview }) {
 
       {/* Body */}
       <p
-        className="text-white/90 text-sm leading-relaxed line-clamp-4 flex-1"
+        className="text-fg text-sm leading-relaxed line-clamp-4 flex-1"
         style={{ fontFamily: "var(--font-inter)" }}
       >
         &ldquo;{review.text}&rdquo;
       </p>
 
       {/* Author row */}
-      <div className="flex items-center gap-3 pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+      <div className="flex items-center gap-3 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
         <div
           className="w-9 h-9 rounded-full flex items-center justify-center text-[0.65rem] font-semibold shrink-0"
           style={{
@@ -184,10 +185,10 @@ function ReviewCard({ review }: { review: GoogleReview }) {
           {initials}
         </div>
         <div className="min-w-0">
-          <div className="text-sm font-medium text-white/80 truncate" style={{ fontFamily: "var(--font-inter)" }}>
+          <div className="text-sm font-medium text-fg truncate" style={{ fontFamily: "var(--font-inter)" }}>
             {review.name}
           </div>
-          <div className="text-[0.6rem] tracking-wider text-white/25" style={{ fontFamily: "var(--font-inter)" }}>
+          <div className="text-[0.6rem] tracking-wider text-fg-subtle" style={{ fontFamily: "var(--font-inter)" }}>
             {review.date}
           </div>
         </div>
@@ -237,7 +238,7 @@ export default function ReviewsSection() {
   const pad = (arr: GoogleReview[]) => (arr.length < 5 ? [...arr, ...arr, ...arr] : arr);
 
   return (
-    <section id="avis" className="relative py-28 overflow-hidden" style={{ background: "#050505" }}>
+    <section id="avis" className="relative py-28 overflow-hidden bg-bg">
       {/* Ambient glow */}
       <div
         className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] pointer-events-none"
@@ -258,15 +259,15 @@ export default function ReviewsSection() {
       >
         {/* Eyebrow */}
         <div className="flex items-center justify-center gap-2 mb-5">
-          <div className="h-px w-12 bg-white/10" />
-          <span className="text-[0.6rem] tracking-[0.5em] uppercase text-white/40" style={inter}>
+          <div className="h-px w-12" style={{ backgroundColor: "var(--border-strong)" }} />
+          <span className="text-[0.6rem] tracking-[0.5em] uppercase text-fg-subtle" style={inter}>
             {t({ fr: "Avis Google", en: "Google Reviews", es: "Opiniones de Google", it: "Recensioni Google" })}
           </span>
-          <div className="h-px w-12 bg-white/10" />
+          <div className="h-px w-12" style={{ backgroundColor: "var(--border-strong)" }} />
         </div>
 
         {/* Headline */}
-        <h2 className="text-[clamp(3.5rem,10vw,8rem)] text-white uppercase mb-5" style={bebas}>
+        <h2 className="text-[clamp(3.5rem,10vw,8rem)] text-fg uppercase mb-5" style={bebas}>
           {t({ fr: "Ce Qu'ils", en: "What They", es: "Lo Que", it: "Cosa" })}{" "}
           <span style={{ color: "#FBBC05" }}>{t({ fr: "Disent", en: "Say", es: "Dicen", it: "Dicono" })}</span>
         </h2>
@@ -281,12 +282,12 @@ export default function ReviewsSection() {
         >
           <GoogleLogo size={22} />
           <Stars n={OVERALL_RATING} size={18} />
-          <span className="text-3xl font-light text-white/80 tabular-nums" style={inter}>
+          <span className="text-3xl font-light text-fg/80 tabular-nums" style={{ color: "var(--fg)", opacity: 0.8, ...inter }}>
             {OVERALL_RATING.toFixed(1)}
           </span>
-          <span className="text-white/30 text-sm" style={inter}>/5</span>
-          <span className="text-white/20 text-sm" style={inter}>·</span>
-          <span className="text-white/50 text-sm" style={inter}>
+          <span className="text-fg-subtle text-sm" style={inter}>/5</span>
+          <span className="text-fg-ghost text-sm" style={inter}>·</span>
+          <span className="text-fg-muted text-sm" style={inter}>
             {TOTAL_REVIEWS.toLocaleString()} {t({ fr: "avis Google", en: "Google reviews", es: "opiniones de Google", it: "recensioni Google" })}
           </span>
           {/* Verified badge */}
@@ -322,7 +323,7 @@ export default function ReviewsSection() {
           href="https://www.google.com/maps/place/L'Echoppe+de+Paris"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-2 text-white/20 hover:text-white/50 transition-colors duration-300"
+          className="flex items-center gap-2 text-fg-subtle hover:text-fg transition-colors duration-300"
           style={inter}
         >
           <GoogleLogo size={14} />

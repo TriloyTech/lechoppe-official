@@ -76,7 +76,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             "servesCuisine": "French",
             "priceRange": "€€",
             "image": "https://lechoppe.vercel.app/images/logo-transparent.png",
-            "sameAs": ["https://deliveroo.fr/fr/menu/paris/saint-ambroise/l-echoppe-de-paris"]
+            "sameAs": ["https://deliveroo.fr/fr/menu/paris/saint-ambroise/lechoppe-de-paris"]
           }) }}
         />
       </head>

@@ -6,9 +6,10 @@ import { useLang } from "@/context/LangContext";
 
 interface Props {
   scrollYProgress: MotionValue<number>;
+  onBookClick?: () => void;
 }
 
-export default function HeroTextOverlays({ scrollYProgress }: Props) {
+export default function HeroTextOverlays({ scrollYProgress, onBookClick }: Props) {
   const { content } = useSiteContent();
   const { t } = useLang();
 
@@ -176,8 +177,11 @@ export default function HeroTextOverlays({ scrollYProgress }: Props) {
         </h2>
 
         {/* Book Now CTA */}
-        <a
-          href="#reservation"
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            if (onBookClick) onBookClick();
+          }}
           className="group relative inline-flex items-center gap-2 md:gap-3 px-7 md:px-9 py-3.5 md:py-4 bg-[#F5F5F5] text-[#0A0A0A] text-xs md:text-sm font-semibold tracking-[0.18em] uppercase overflow-hidden transition-all duration-300 hover:bg-[#7CB895] hover:text-[#F5F5F5]"
           style={{ ...inter, clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 100%, 10px 100%)" }}
         >
@@ -185,7 +189,7 @@ export default function HeroTextOverlays({ scrollYProgress }: Props) {
             {t(content.hero_s4_cta_fr || "Réserver", content.hero_s4_cta_en || "Book Now")}
           </span>
           <span className="relative z-10 transition-transform duration-300 group-hover:translate-x-1">→</span>
-        </a>
+        </button>
 
         <p
           className="mt-4 md:mt-6 text-[#F5F5F5]/40 text-[0.6rem] md:text-xs tracking-widest drop-shadow-md"
