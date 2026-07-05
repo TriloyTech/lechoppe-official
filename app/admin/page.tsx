@@ -469,7 +469,7 @@ function MenuItemModal({
 // ─────────────────────────────────────────────────────────────────────────────
 // Categories Panel
 // ─────────────────────────────────────────────────────────────────────────────
-function CategoriesPanel({ t }: { t: (fr: string, en: string) => string }) {
+function CategoriesPanel({ t }: { t: any }) {
   const db = useMemo(() => createClient(), []);
   const [cats, setCats] = useState<Category[]>([]);
   const [saving, setSaving] = useState(false);
@@ -539,15 +539,28 @@ function CategoriesPanel({ t }: { t: (fr: string, en: string) => string }) {
         <div className="bg-[#111] border border-white/10 rounded-xl p-6">
           <div className="space-y-3">
             {cats.map((cat, i) => (
-              <div key={cat.key} className="flex items-center gap-3 bg-black/40 border border-white/5 rounded-lg p-3 transition-colors hover:border-white/10">
-                <div className="flex flex-col gap-1">
-                  <button onClick={() => move(i, -1)} className="text-white/20 hover:text-white/60 px-1 transition-colors">▲</button>
-                  <button onClick={() => move(i, 1)}  className="text-white/20 hover:text-white/60 px-1 transition-colors">▼</button>
+              <div key={cat.key} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-black/40 border border-white/5 rounded-xl p-3 sm:p-4 transition-colors hover:border-white/10">
+                {/* Controls and Emoji row on mobile, inline on desktop */}
+                <div className="flex items-center gap-3 justify-between sm:justify-start">
+                  <div className="flex flex-row sm:flex-col gap-2 sm:gap-1">
+                    <button onClick={() => move(i, -1)} className="text-white/25 hover:text-white/60 px-2 sm:px-1 transition-colors text-sm sm:text-xs">▲</button>
+                    <button onClick={() => move(i, 1)}  className="text-white/25 hover:text-white/60 px-2 sm:px-1 transition-colors text-sm sm:text-xs">▼</button>
+                  </div>
+                  <input value={cat.emoji} onChange={e => upd(i, "emoji", e.target.value)} maxLength={4} className="w-12 text-center bg-white/5 border border-white/10 rounded-lg p-2 text-lg outline-none focus:border-[#7CB895]/50 transition-colors" />
+                  <span className="text-xs text-white/30 sm:hidden">Emoji</span>
+                  
+                  {/* Remove button on the right for mobile */}
+                  <button onClick={() => remove(i)} className="sm:hidden text-red-400/50 hover:text-red-400 text-2xl px-2 transition-colors">×</button>
                 </div>
-                <input value={cat.emoji} onChange={e => upd(i, "emoji", e.target.value)} maxLength={4} className="w-12 text-center bg-white/5 border border-white/10 rounded-lg p-2 text-lg outline-none focus:border-[#7CB895]/50 transition-colors" />
-                <input value={cat.fr} onChange={e => upd(i, "fr", e.target.value)} className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white/80 outline-none focus:border-[#7CB895]/50 transition-colors" placeholder="FR name" />
-                <input value={cat.en} onChange={e => upd(i, "en", e.target.value)} className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white/80 outline-none focus:border-[#7CB895]/50 transition-colors" placeholder="EN name" />
-                <button onClick={() => remove(i)} className="text-red-400/40 hover:text-red-400 text-xl px-2 transition-colors">×</button>
+                
+                {/* Inputs block */}
+                <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                  <input value={cat.fr} onChange={e => upd(i, "fr", e.target.value)} className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white/80 outline-none focus:border-[#7CB895]/50 transition-colors" placeholder="FR name" />
+                  <input value={cat.en} onChange={e => upd(i, "en", e.target.value)} className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white/80 outline-none focus:border-[#7CB895]/50 transition-colors" placeholder="EN name" />
+                </div>
+                
+                {/* Remove button on desktop */}
+                <button onClick={() => remove(i)} className="hidden sm:block text-red-400/40 hover:text-red-400 text-xl px-2 transition-colors">×</button>
               </div>
             ))}
           </div>
@@ -592,7 +605,7 @@ function CategoriesPanel({ t }: { t: (fr: string, en: string) => string }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Content Panel
 // ─────────────────────────────────────────────────────────────────────────────
-function ContentPanel({ t }: { t: (fr: string, en: string) => string }) {
+function ContentPanel({ t }: { t: any }) {
   const db = useMemo(() => createClient(), []);
   const [form, setForm] = useState<SiteContent>(DEFAULT_CONTENT);
   const [saving, setSaving] = useState(false);
@@ -656,7 +669,7 @@ function ContentPanel({ t }: { t: (fr: string, en: string) => string }) {
 
   const lbl = (label: string) => <label className="block text-[0.6rem] tracking-widest uppercase text-white/40 mb-2">{label}</label>;
   const row = (frKey: keyof SiteContent, enKey: keyof SiteContent, frLabel: string, enLabel: string, textarea = false) => (
-    <div className="grid grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
       <div>{lbl(frLabel)}{textarea
         ? <textarea rows={2} value={String(form[frKey] ?? "")} onChange={set(frKey)} className={inputCls + " resize-none"} />
         : <input value={String(form[frKey] ?? "")} onChange={set(frKey)} className={inputCls} />}
@@ -752,19 +765,19 @@ function ContentPanel({ t }: { t: (fr: string, en: string) => string }) {
         </div>
 
         {/* ── 3. STORY SECTION ─────────────────────────────────────────────── */}
-        <div className="bg-[#1A1A1A] p-6 rounded-xl border border-white/5">
+        <div className="bg-[#1A1A1A] p-4 sm:p-6 rounded-xl border border-white/5">
           {sectionTitle("3️⃣", t({ fr: "Section Histoire", en: "Our Story Section", es: "Sección Historia", it: "Sezione Storia" }))}
-          <p className="text-white/40 text-xs mb-6 mt-[-10px]">{t({ fr: "Le texte de présentation et les 3 piliers de la marque.", en: "The introduction text and the 3 brand pillars.", es: "El texto de presentación y los 3 pilares de la marca.", it: "Il testo di presentazione e i 3 pilastri del marchio." })}</p>
+          <p className="text-white/40 text-xs mb-6 mt-[-10px]">{t({ fr: "Le texte de présentation et les 3 piliers de la marque.", en: "The introduction text and the 3 brand pillars.", es: "El texte de présentation et les 3 piliers de la marque.", it: "Il testo di presentazione e i 3 pilastri del marchio." })}</p>
 
           <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <div>{lbl(t({ fr: "Titre Principal FR", en: "Main Headline FR", es: "Título Principal FR", it: "Titolo Principale FR" }))}<textarea rows={2} value={form.story_headline_fr || ""} onChange={e=>setForm(p=>({...p,story_headline_fr:e.target.value}))} className={inputCls + " resize-none"} /></div>
               <div>{lbl(t({ fr: "Titre Principal EN", en: "Main Headline EN", es: "Título Principal EN", it: "Titolo Principale EN" }))}<textarea rows={2} value={form.story_headline_en || ""} onChange={e=>setForm(p=>({...p,story_headline_en:e.target.value}))} className={inputCls + " resize-none"} /></div>
             </div>
 
-            <div className="grid grid-cols-2 gap-6">
-              <div>{lbl(t({ fr: "Texte de présentation FR", en: "Introduction Text FR", es: "Texto de presentación FR", it: "Testo di presentazione FR" }))}<textarea rows={4} value={form.story_text_fr || ""} onChange={e=>setForm(p=>({...p,story_text_fr:e.target.value}))} className={inputCls + " resize-none"} /></div>
-              <div>{lbl(t({ fr: "Texte de présentation EN", en: "Introduction Text EN", es: "Texto de presentación EN", it: "Testo di presentazione EN" }))}<textarea rows={4} value={form.story_text_en || ""} onChange={e=>setForm(p=>({...p,story_text_en:e.target.value}))} className={inputCls + " resize-none"} /></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+              <div>{lbl(t({ fr: "Texte de présentation FR", en: "Introduction Text FR", es: "Texto de presentación FR", it: "Testo di présentation FR" }))}<textarea rows={4} value={form.story_text_fr || ""} onChange={e=>setForm(p=>({...p,story_text_fr:e.target.value}))} className={inputCls + " resize-none"} /></div>
+              <div>{lbl(t({ fr: "Texte de présentation EN", en: "Introduction Text EN", es: "Texto de présentation EN", it: "Testo di présentation EN" }))}<textarea rows={4} value={form.story_text_en || ""} onChange={e=>setForm(p=>({...p,story_text_en:e.target.value}))} className={inputCls + " resize-none"} /></div>
             </div>
 
             <div className="border-t border-white/5 pt-4">
@@ -778,7 +791,7 @@ function ContentPanel({ t }: { t: (fr: string, en: string) => string }) {
                         {t({ fr: "Supprimer", en: "Remove", es: "Eliminar", it: "Elimina" })}
                       </button>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-[0.55rem] text-white/30 uppercase mb-1">{t({ fr: "Titre FR", en: "Title FR", es: "Título FR", it: "Titolo FR" })}</label>
                         <input value={p.title_fr} onChange={e=>updatePillar(i, "title_fr", e.target.value)} className={inputCls} />
@@ -788,7 +801,7 @@ function ContentPanel({ t }: { t: (fr: string, en: string) => string }) {
                         <input value={p.title_en} onChange={e=>updatePillar(i, "title_en", e.target.value)} className={inputCls} />
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-[0.55rem] text-white/30 uppercase mb-1">{t({ fr: "Texte FR", en: "Body FR", es: "Texto FR", it: "Testo FR" })}</label>
                         <textarea rows={2} value={p.body_fr} onChange={e=>updatePillar(i, "body_fr", e.target.value)} className={inputCls + " resize-none"} />
@@ -809,12 +822,12 @@ function ContentPanel({ t }: { t: (fr: string, en: string) => string }) {
         </div>
 
         {/* ── 4. LOCATION & HOURS ────────────────────────────────────────── */}
-        <div className="bg-[#1A1A1A] p-6 rounded-xl border border-white/5">
+        <div className="bg-[#1A1A1A] p-4 sm:p-6 rounded-xl border border-white/5">
           {sectionTitle("4️⃣", t({ fr: "Localisation & Horaires", en: "Location & Hours", es: "Ubicación y Horarios", it: "Posizione e Orari" }))}
           <p className="text-white/40 text-xs mb-6 mt-[-10px]">{t({ fr: "Infos affichées dans la section contact et le pied de page.", en: "Info displayed in the contact section and footer.", es: "Información mostrada en la sección de contacto y pie de página.", it: "Informazioni visualizzate nella sezione contatti e nel footer." })}</p>
 
           <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <div>{lbl(t({ fr: "Adresse Physique", en: "Physical Address", es: "Dirección Física", it: "Indirizzo Fisico" }))}<input value={form.address} onChange={e=>setForm(p=>({...p,address:e.target.value}))} className={inputCls} /></div>
               <div>{lbl(t({ fr: "Téléphone de Contact", en: "Contact Phone", es: "Teléfono de Contacto", it: "Telefono di Contatto" }))}<input value={form.phone} onChange={e=>setForm(p=>({...p,phone:e.target.value}))} className={inputCls} /></div>
             </div>
@@ -823,20 +836,20 @@ function ContentPanel({ t }: { t: (fr: string, en: string) => string }) {
               {lbl(t({ fr: "Horaires d'Ouverture", en: "Opening Hours", es: "Horarios de Apertura", it: "Orari di Apertura" }))}
               <div className="space-y-2 mt-2">
                 {openingHours.map((h: any, i: number) => (
-                  <div key={i} className="flex gap-4 items-center bg-black/40 border border-white/5 rounded-lg p-3 relative group pr-10">
-                    <div className="w-1/3">
+                  <div key={i} className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center bg-black/40 border border-white/5 rounded-lg p-3 relative group pr-10">
+                    <div className="w-full sm:w-1/3">
                       <label className="block text-[0.55rem] text-white/30 uppercase mb-1">{t({ fr: "Jour FR", en: "Day FR", es: "Día FR", it: "Giorno FR" })}</label>
                       <input value={h.day} onChange={e=>updateHour(i, "day", e.target.value)} className={inputCls} />
                     </div>
-                    <div className="w-1/3">
+                    <div className="w-full sm:w-1/3">
                       <label className="block text-[0.55rem] text-white/30 uppercase mb-1">{t({ fr: "Jour EN", en: "Day EN", es: "Día EN", it: "Giorno EN" })}</label>
                       <input value={h.day_en} onChange={e=>updateHour(i, "day_en", e.target.value)} className={inputCls} />
                     </div>
-                    <div className="w-1/3">
+                    <div className="w-full sm:w-1/3">
                       <label className="block text-[0.55rem] text-white/30 uppercase mb-1">{t({ fr: "Horaires", en: "Hours", es: "Horarios", it: "Orari" })}</label>
                       <input value={h.hours} onChange={e=>updateHour(i, "hours", e.target.value)} className={inputCls} placeholder="12:00 – 14:30 / 19:00 – 22:30" />
                     </div>
-                    <button onClick={() => removeHour(i)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all text-xl" title={t({ fr: "Supprimer", en: "Remove", es: "Eliminar", it: "Elimina" })}>
+                    <button onClick={() => removeHour(i)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/20 hover:text-red-400 opacity-0 group-hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all text-xl" title={t({ fr: "Supprimer", en: "Remove", es: "Eliminar", it: "Elimina" })}>
                       &times;
                     </button>
                   </div>
@@ -850,12 +863,12 @@ function ContentPanel({ t }: { t: (fr: string, en: string) => string }) {
         </div>
 
         {/* ── 5. FOOTER & LEGAL ──────────────────────────────────────────── */}
-        <div className="bg-[#1A1A1A] p-6 rounded-xl border border-white/5">
+        <div className="bg-[#1A1A1A] p-4 sm:p-6 rounded-xl border border-white/5">
           {sectionTitle("5️⃣", t({ fr: "Footer & Mentions Légales", en: "Footer & Legal", es: "Footer y Avisos Legales", it: "Footer e Note Legali" }))}
           <p className="text-white/40 text-xs mb-6 mt-[-10px]">{t({ fr: "Le slogan global en bas de page et les pages légales.", en: "The global tagline at the bottom and legal pages.", es: "El eslogan global en el pie de página y las páginas legales.", it: "Lo slogan globale in fondo alla pagina e le pagine legali." })}</p>
 
           <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <div>{lbl(t({ fr: "Slogan Global FR", en: "Global Tagline FR", es: "Eslogan Global FR", it: "Slogan Globale FR" }))}<input value={form.tagline_fr} onChange={e=>setForm(p=>({...p,tagline_fr:e.target.value}))} className={inputCls} /></div>
               <div>{lbl(t({ fr: "Slogan Global EN", en: "Global Tagline EN", es: "Eslogan Global EN", it: "Slogan Globale EN" }))}<input value={form.tagline_en} onChange={e=>setForm(p=>({...p,tagline_en:e.target.value}))} className={inputCls} /></div>
             </div>
@@ -893,7 +906,7 @@ function ContentPanel({ t }: { t: (fr: string, en: string) => string }) {
 // Offers Panel
 // ─────────────────────────────────────────────────────────────────────────────
 
-function OffersPanel({ db, t }: { db: any; t: (fr: string, en: string) => string }) {
+function OffersPanel({ db, t }: { db: any; t: any }) {
   const [offers, setOffers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -989,27 +1002,28 @@ function OffersPanel({ db, t }: { db: any; t: (fr: string, en: string) => string
 
   return (
     <div className="max-w-5xl">
-      <div className="mb-8 flex justify-between items-center">
+      <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-[2.5rem] text-[#7CB895]" style={bebas}>{t({ fr: "Codes Promo", en: "Promo Codes", es: "Códigos Promo", it: "Codici Promo" })}</h2>
           <p className="text-white/40 text-sm mt-1">{t({ fr: "Gérez les offres spéciales et réductions.", en: "Manage special offers and discounts.", es: "Gestione las ofertas especiales y descuentos.", it: "Gestisci le offerte speciali e gli sconti." })}</p>
         </div>
-        <button onClick={() => handleOpenModal()} className="px-5 py-2 text-xs uppercase bg-[#7CB895] text-black font-semibold rounded-lg hover:bg-[#6aaa83] transition-colors">
+        <button onClick={() => handleOpenModal()} className="px-5 py-2 text-xs uppercase bg-[#7CB895] text-black font-semibold rounded-lg hover:bg-[#6aaa83] transition-colors whitespace-nowrap">
           + {t({ fr: "Nouvelle Offre", en: "New Offer", es: "Nueva Oferta", it: "Nuova Offerta" })}
         </button>
       </div>
       
       <div className="bg-[#111] border border-white/10 rounded-xl overflow-hidden">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-white/5 border-b border-white/10 text-white/40 uppercase tracking-widest text-[0.6rem]">
-            <tr>
-              <th className="px-6 py-4">Code</th>
-              <th className="px-6 py-4">Remise</th>
-              <th className="px-6 py-4">Expiration</th>
-              <th className="px-6 py-4">Statut</th>
-              <th className="px-6 py-4 text-right">Actions</th>
-            </tr>
-          </thead>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-white/5 border-b border-white/10 text-white/40 uppercase tracking-widest text-[0.6rem]">
+              <tr>
+                <th className="px-6 py-4">Code</th>
+                <th className="px-6 py-4">Remise</th>
+                <th className="px-6 py-4">Expiration</th>
+                <th className="px-6 py-4">Statut</th>
+                <th className="px-6 py-4 text-right">Actions</th>
+              </tr>
+            </thead>
           <tbody className="divide-y divide-white/10">
             {loading ? (
               <tr><td colSpan={5} className="px-6 py-8 text-center text-white/20">Chargement...</td></tr>
@@ -1044,6 +1058,7 @@ function OffersPanel({ db, t }: { db: any; t: (fr: string, en: string) => string
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Offer Modal */}
@@ -1130,7 +1145,7 @@ function OffersPanel({ db, t }: { db: any; t: (fr: string, en: string) => string
 // ─────────────────────────────────────────────────────────────────────────────
 // Dashboard Overview
 // ─────────────────────────────────────────────────────────────────────────────
-function DashboardPanel({ reservations, menuItems, t }: { reservations: Reservation[], menuItems: MenuItem[], t: (fr:string, en:string)=>string }) {
+function DashboardPanel({ reservations, menuItems, t }: { reservations: Reservation[], menuItems: MenuItem[], t: any }) {
   const pendingRes = reservations.filter(r => r.status === "pending").length;
   const today = new Date().toISOString().split('T')[0];
   const todayRes = reservations.filter(r => r.date === today && r.status !== "cancelled").length;
@@ -1183,6 +1198,18 @@ export default function AdminDashboard() {
   // Navigation state
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
   const [menuSortBy, setMenuSortBy] = useState<string>("created_at");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileMenuOpen]);
   
   // Modal states
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
@@ -1211,8 +1238,10 @@ export default function AdminDashboard() {
         return timeB - timeA; // descending (newest first)
       }
       if (menuSortBy === "updated_at") {
-        const timeA = (a.updated_at || a.created_at) ? new Date(a.updated_at || a.created_at).getTime() : 0;
-        const timeB = (b.updated_at || b.created_at) ? new Date(b.updated_at || b.created_at).getTime() : 0;
+        const dateA = a.updated_at || a.created_at;
+        const dateB = b.updated_at || b.created_at;
+        const timeA = dateA ? new Date(dateA).getTime() : 0;
+        const timeB = dateB ? new Date(dateB).getTime() : 0;
         return timeB - timeA; // descending (most recently updated first)
       }
       if (menuSortBy === "name") {
@@ -1291,7 +1320,10 @@ export default function AdminDashboard() {
 
   const SidebarItem = ({ icon, label, tab }: { icon: string, label: string, tab: Tab }) => (
     <button
-      onClick={() => setActiveTab(tab)}
+      onClick={() => {
+        setActiveTab(tab);
+        setMobileMenuOpen(false);
+      }}
       className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 text-sm ${
         activeTab === tab 
           ? "bg-[#7CB895]/10 text-[#7CB895] font-medium border border-[#7CB895]/20" 
@@ -1313,9 +1345,96 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] text-[#F5F5F5] flex selection:bg-[#D4AF37]/30">
+    <div className="min-h-screen bg-[#050505] text-[#F5F5F5] flex flex-col md:flex-row selection:bg-[#D4AF37]/30">
+      {/* ── Mobile Header Bar ── */}
+      <header className="md:hidden sticky top-0 z-40 w-full bg-[#0A0A0A] border-b border-white/5 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <img src="/images/logo-full-brand.png" alt="L'Échoppe Logo" className="h-8 object-contain" />
+          <p className="text-[0.6rem] text-white/30 uppercase tracking-[0.2em]">Admin</p>
+        </div>
+        
+        <button
+          onClick={() => setMobileMenuOpen(o => !o)}
+          aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+          className="flex flex-col justify-center items-center w-10 h-10 rounded-lg gap-[5px] transition-colors hover:bg-white/5"
+        >
+          <motion.span
+            animate={mobileMenuOpen ? { rotate: 45, y: 8 } : { rotate: 0, y: 0 }}
+            transition={{ duration: 0.25 }}
+            className="block w-5 h-[1.5px] origin-center bg-white"
+          />
+          <motion.span
+            animate={mobileMenuOpen ? { opacity: 0, scaleX: 0 } : { opacity: 1, scaleX: 1 }}
+            transition={{ duration: 0.2 }}
+            className="block w-5 h-[1.5px] bg-white"
+          />
+          <motion.span
+            animate={mobileMenuOpen ? { rotate: -45, y: -8 } : { rotate: 0, y: 0 }}
+            transition={{ duration: 0.25 }}
+            className="block w-5 h-[1.5px] origin-center bg-white"
+          />
+        </button>
+      </header>
+
+      {/* ── Mobile Drawer overlay ── */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              key="admin-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-45 bg-black/60 backdrop-blur-sm md:hidden"
+              onClick={() => setMobileMenuOpen(false)}
+            />
+
+            {/* Mobile Drawer panel */}
+            <motion.aside
+              key="admin-drawer"
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              className="fixed top-0 left-0 bottom-0 z-50 w-[75vw] max-w-xs bg-[#0A0A0A] border-r border-white/5 flex flex-col pt-16 md:hidden"
+            >
+              <div className="p-4 flex-1 overflow-y-auto space-y-6">
+                <nav className="space-y-1">
+                  <div className="text-[0.65rem] text-white/20 uppercase tracking-widest mb-3 px-4 font-semibold">Général</div>
+                  <SidebarItem icon="📊" label={t({ fr: "Tableau de bord", en: "Dashboard", es: "Panel de Control", it: "Pannello di Controllo" })} tab="dashboard" />
+                  <SidebarItem icon="📅" label={t({ fr: "Réservations", en: "Reservations", es: "Reservas", it: "Prenotazioni" })} tab="reservations" />
+                  
+                  <div className="text-[0.65rem] text-white/20 uppercase tracking-widest mb-3 px-4 mt-8 font-semibold">Restaurant</div>
+                  <SidebarItem icon="🍽️" label={t({ fr: "Menu & Plats", en: "Menu Items", es: "Menú y Platos", it: "Menu e Piatti" })} tab="menu" />
+                  <SidebarItem icon="🗂️" label={t({ fr: "Catégories", en: "Categories", es: "Categorías", it: "Categorie" })} tab="categories" />
+                  <SidebarItem icon="🎁" label={t({ fr: "Codes Promo", en: "Promo Codes", es: "Códigos Promo", it: "Codici Promo" })} tab="offers" />
+                  
+                  <div className="text-[0.65rem] text-white/20 uppercase tracking-widest mb-3 px-4 mt-8 font-semibold">Site Web CMS</div>
+                  <SidebarItem icon="✏️" label={t({ fr: "Contenu & Infos", en: "Content & Info", es: "Contenido e Info", it: "Contenuti e Info" })} tab="content" />
+                </nav>
+              </div>
+
+              <div className="p-4 border-t border-white/5 space-y-2">
+                <AdminLangDropdown />
+                <button 
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    handleLogout();
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-white/40 hover:bg-red-500/10 hover:text-red-400 transition-colors text-sm"
+                >
+                  <span className="text-lg">🚪</span>
+                  <span>{t({ fr: "Déconnexion", en: "Sign Out", es: "Cerrar Sesión", it: "Disconnetti" })}</span>
+                </button>
+              </div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
       {/* ── WordPress-style Left Sidebar ── */}
-      <aside className="w-64 bg-[#0A0A0A] border-r border-white/5 flex flex-col h-screen sticky top-0 shrink-0">
+      <aside className="hidden md:flex w-64 bg-[#0A0A0A] border-r border-white/5 flex flex-col h-screen sticky top-0 shrink-0">
         <div className="p-6">
           <div className="flex items-center gap-3 mb-1">
             <img src="/images/logo-full-brand.png" alt="L'Échoppe Logo" className="h-8 object-contain" />
@@ -1351,7 +1470,7 @@ export default function AdminDashboard() {
       </aside>
 
       {/* ── Main Content Area ── */}
-      <main className="flex-1 overflow-y-auto p-10 bg-[#050505]">
+      <main className="flex-1 overflow-y-auto p-4 md:p-10 bg-[#050505]">
         
         {/* Render Active Panel */}
         <AnimatePresence mode="wait">
@@ -1369,7 +1488,7 @@ export default function AdminDashboard() {
             
             {activeTab === "reservations" && (
               <div className="max-w-6xl">
-                <div className="mb-8 flex justify-between items-end">
+                <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
                   <div>
                     <h2 className="text-[2.5rem] text-[#7CB895]" style={bebas}>{t({ fr: "Réservations", en: "Reservations", es: "Reservas", it: "Prenotazioni" })}</h2>
                     <p className="text-white/40 text-sm mt-1">{t({ fr: "Gérez vos tables et demandes clients.", en: "Manage your tables and customer requests.", es: "Gestione sus mesas y solicitudes de clientes.", it: "Gestisci i tavoli e le richieste dei clienti." })}</p>
@@ -1394,88 +1513,90 @@ export default function AdminDashboard() {
                 </div>
                 
                 <div className="bg-[#111] border border-white/10 rounded-xl overflow-hidden">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-white/5 border-b border-white/10 text-white/40 uppercase tracking-widest text-[0.6rem]">
-                      <tr>
-                        <th className="px-4 py-4 w-10 text-center">
-                          <input 
-                            type="checkbox" 
-                            className="cursor-pointer accent-[#7CB895]"
-                            checked={filteredReservations.length > 0 && selectedReservations.size === filteredReservations.length}
-                            onChange={toggleAllReservations}
-                          />
-                        </th>
-                        <th className="px-6 py-4">Client</th>
-                        <th className="px-6 py-4">Contact</th>
-                        <th className="px-6 py-4">Date & Heure</th>
-                        <th className="px-6 py-4">Couvert(s)</th>
-                        <th className="px-6 py-4">Statut</th>
-                        <th className="px-6 py-4 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/10">
-                      {filteredReservations.length === 0 ? (
-                        <tr><td colSpan={7} className="px-6 py-8 text-center text-white/20">{t({ fr: "Aucune réservation.", en: "No reservations.", es: "Sin reservas.", it: "Nessuna prenotazione." })}</td></tr>
-                      ) : (
-                        filteredReservations.map((r) => (
-                          <tr key={r.id} className="hover:bg-white/[0.02]">
-                            <td className="px-4 py-4 w-10 text-center">
-                              <input 
-                                type="checkbox" 
-                                className="cursor-pointer accent-[#7CB895]"
-                                checked={selectedReservations.has(r.id)}
-                                onChange={() => toggleReservationSelection(r.id)}
-                              />
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="font-medium text-white/90">{r.name}</div>
-                              {r.notes && <div className="text-[0.65rem] text-white/40 mt-1 max-w-[150px] truncate" title={r.notes}>📝 {r.notes}</div>}
-                            </td>
-                            <td className="px-6 py-4 text-white/60 text-xs">
-                              <div>{r.email}</div>
-                              <div>{r.phone}</div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="text-white/90">{new Date(r.date).toLocaleDateString()}</div>
-                              <div className="text-[#D4AF37] font-mono text-xs">{r.time}</div>
-                            </td>
-                            <td className="px-6 py-4 text-white/80">{r.party_size}</td>
-                            <td className="px-6 py-4">
-                              <span className={`px-2.5 py-1 rounded-full text-[0.6rem] uppercase tracking-widest ${statusColors[r.status]}`}>
-                                {r.status}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-right space-x-2">
-                              {r.status === "pending" && (
-                                <button onClick={() => updateResStatus(r.id, "confirmed")} className="px-3 py-1 bg-[#7CB895]/20 text-[#7CB895] border border-[#7CB895]/30 hover:bg-[#7CB895]/30 rounded text-xs transition-colors">
-                                  {t({ fr: "Confirmer", en: "Confirm", es: "Confirmar", it: "Conferma" })}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-white/5 border-b border-white/10 text-white/40 uppercase tracking-widest text-[0.6rem]">
+                        <tr>
+                          <th className="px-4 py-4 w-10 text-center">
+                            <input 
+                              type="checkbox" 
+                              className="cursor-pointer accent-[#7CB895]"
+                              checked={filteredReservations.length > 0 && selectedReservations.size === filteredReservations.length}
+                              onChange={toggleAllReservations}
+                            />
+                          </th>
+                          <th className="px-6 py-4">Client</th>
+                          <th className="px-6 py-4">Contact</th>
+                          <th className="px-6 py-4">Date & Heure</th>
+                          <th className="px-6 py-4">Couvert(s)</th>
+                          <th className="px-6 py-4">Statut</th>
+                          <th className="px-6 py-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/10">
+                        {filteredReservations.length === 0 ? (
+                          <tr><td colSpan={7} className="px-6 py-8 text-center text-white/20">{t({ fr: "Aucune réservation.", en: "No reservations.", es: "Sin reservas.", it: "Nessuna prenotazione." })}</td></tr>
+                        ) : (
+                          filteredReservations.map((r) => (
+                            <tr key={r.id} className="hover:bg-white/[0.02]">
+                              <td className="px-4 py-4 w-10 text-center">
+                                <input 
+                                  type="checkbox" 
+                                  className="cursor-pointer accent-[#7CB895]"
+                                  checked={selectedReservations.has(r.id)}
+                                  onChange={() => toggleReservationSelection(r.id)}
+                                />
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="font-medium text-white/90">{r.name}</div>
+                                {r.notes && <div className="text-[0.65rem] text-white/40 mt-1 max-w-[150px] truncate" title={r.notes}>📝 {r.notes}</div>}
+                              </td>
+                              <td className="px-6 py-4 text-white/60 text-xs">
+                                <div>{r.email}</div>
+                                <div>{r.phone}</div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="text-white/90">{new Date(r.date).toLocaleDateString()}</div>
+                                <div className="text-[#D4AF37] font-mono text-xs">{r.time}</div>
+                              </td>
+                              <td className="px-6 py-4 text-white/80">{r.party_size}</td>
+                              <td className="px-6 py-4">
+                                <span className={`px-2.5 py-1 rounded-full text-[0.6rem] uppercase tracking-widest ${statusColors[r.status]}`}>
+                                  {r.status}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
+                                {r.status === "pending" && (
+                                  <button onClick={() => updateResStatus(r.id, "confirmed")} className="px-3 py-1 bg-[#7CB895]/20 text-[#7CB895] border border-[#7CB895]/30 hover:bg-[#7CB895]/30 rounded text-xs transition-colors">
+                                    {t({ fr: "Confirmer", en: "Confirm", es: "Confirmar", it: "Conferma" })}
+                                  </button>
+                                )}
+                                {r.status !== "cancelled" && (
+                                  <button onClick={() => updateResStatus(r.id, "cancelled")} className="px-3 py-1 bg-amber-500/10 text-amber-500 border border-amber-500/20 hover:bg-amber-500/20 rounded text-xs transition-colors">
+                                    {t({ fr: "Annuler", en: "Cancel", es: "Cancelar", it: "Annulla" })}
+                                  </button>
+                                )}
+                                <button onClick={() => {
+                                  if (confirm(t({ fr: "Supprimer cette réservation ?", en: "Delete this reservation?", es: "¿Eliminar esta reserva?", it: "Eliminare questa prenotazione?" }))) {
+                                    db.from("reservations").delete().eq("id", r.id).then(() => fetchData());
+                                  }
+                                }} className="px-3 py-1 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 rounded text-xs transition-colors">
+                                  {t({ fr: "Supprimer", en: "Delete", es: "Eliminar", it: "Elimina" })}
                                 </button>
-                              )}
-                              {r.status !== "cancelled" && (
-                                <button onClick={() => updateResStatus(r.id, "cancelled")} className="px-3 py-1 bg-amber-500/10 text-amber-500 border border-amber-500/20 hover:bg-amber-500/20 rounded text-xs transition-colors">
-                                  {t({ fr: "Annuler", en: "Cancel", es: "Cancelar", it: "Annulla" })}
-                                </button>
-                              )}
-                              <button onClick={() => {
-                                if (confirm(t({ fr: "Supprimer cette réservation ?", en: "Delete this reservation?", es: "¿Eliminar esta reserva?", it: "Eliminare questa prenotazione?" }))) {
-                                  db.from("reservations").delete().eq("id", r.id).then(() => fetchData());
-                                }
-                              }} className="px-3 py-1 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 rounded text-xs transition-colors">
-                                {t({ fr: "Supprimer", en: "Delete", es: "Eliminar", it: "Elimina" })}
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             )}
 
             {activeTab === "menu" && (
               <div className="max-w-6xl">
-                <div className="mb-8 flex justify-between items-end">
+                <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
                   <div>
                     <h2 className="text-[2.5rem] text-[#7CB895]" style={bebas}>{t({ fr: "Menu & Plats", en: "Menu & Dishes", es: "Menú y Platos", it: "Menu e Piatti" })}</h2>
                     <p className="text-white/40 text-sm mt-1">{t({ fr: "Gérez votre carte, prix, et badges (Chef, Emporter).", en: "Manage your menu, prices, and badges (Chef, Takeaway).", es: "Gestione su carta, precios y badges (Chef, Para Llevar).", it: "Gestisci il tuo menu, prezzi e badge (Chef, Asporto)." })}</p>
