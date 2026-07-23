@@ -5,8 +5,8 @@ import { useLang } from "@/context/LangContext";
 import BotCheck from "@/components/BotCheck";
 import PromotionModal from "@/components/PromotionModal";
 
-const SLOTS_LUNCH = ["12:00", "12:30", "13:00", "13:30", "14:00"];
-const SLOTS_DINNER = ["19:00", "19:30", "20:00", "20:30", "21:00", "21:30", "22:00"];
+const SLOTS_LUNCH = ["12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00"];
+const SLOTS_DINNER = ["19:00", "19:30", "20:00", "20:30", "21:00", "21:30", "22:00", "22:30", "23:00"];
 
 type Step = 0 | 1 | 2 | 3 | 4; // Date, Guests, Time, Contact, Success
 
@@ -44,6 +44,48 @@ function StepIndicator({ step, total }: { step: number; total: number }) {
   );
 }
 
+const RESTAURANT_TZ = process.env.RESERVATION_TIMEZONE || "Europe/Paris";
+
+function getIsoInTz(dt: Date, timeZone: string = RESTAURANT_TZ): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(dt);
+  const year = parts.find((p) => p.type === "year")?.value;
+  const month = parts.find((p) => p.type === "month")?.value;
+  const day = parts.find((p) => p.type === "day")?.value;
+  return `${year}-${month}-${day}`;
+}
+
+function getTodayInTz(timeZone: string = RESTAURANT_TZ): Date {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  }).formatToParts(now);
+  const year = parseInt(parts.find((p) => p.type === "year")!.value, 10);
+  const month = parseInt(parts.find((p) => p.type === "month")!.value, 10) - 1;
+  const day = parseInt(parts.find((p) => p.type === "day")!.value, 10);
+  return new Date(year, month, day);
+}
+
+function getCurrentTimeInTz(timeZone: string = RESTAURANT_TZ): { hour: number; minute: number } {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "numeric",
+    minute: "numeric",
+    hour12: false,
+  }).formatToParts(new Date());
+  let hour = parseInt(parts.find((p) => p.type === "hour")?.value ?? "0", 10);
+  if (hour === 24) hour = 0;
+  const minute = parseInt(parts.find((p) => p.type === "minute")?.value ?? "0", 10);
+  return { hour, minute };
+}
+
 /* ── Step 0: Date picker ─────────────────────────────────────────────────── */
 function StepDate({ d, next, t }: { d: Draft; next: (v: Partial<Draft>) => void; t: any }) {
   const [date, setDate] = useState(d.date);
@@ -55,42 +97,51 @@ function StepDate({ d, next, t }: { d: Draft; next: (v: Partial<Draft>) => void;
   }, []);
 
   const days = mounted
-    ? Array.from({ length: 30 }, (_, i) => {
-      const dt = new Date(); dt.setDate(dt.getDate() + i + 1); return dt;
-    })
+    ? (() => {
+        const baseDate = getTodayInTz();
+        return Array.from({ length: 30 }, (_, i) => {
+          const dt = new Date(baseDate);
+          dt.setDate(dt.getDate() + i);
+          return dt;
+        });
+      })()
     : [];
 
   const locale = lang === "en" ? "en-GB" : lang === "es" ? "es-ES" : lang === "it" ? "it-IT" : "fr-FR";
-  const fmtWeekday = (dt: Date) => new Intl.DateTimeFormat(locale, { weekday: "short" }).format(dt);
-  const fmtDayMonth = (dt: Date) => new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }).format(dt);
-  const iso = (dt: Date) => dt.toISOString().split("T")[0];
+  const fmtWeekday = (dt: Date) => new Intl.DateTimeFormat(locale, { weekday: "short", timeZone: RESTAURANT_TZ }).format(dt);
+  const fmtDayMonth = (dt: Date) => new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", timeZone: RESTAURANT_TZ }).format(dt);
+  const iso = (dt: Date) => getIsoInTz(dt);
 
   return (
-    <div className="flex flex-col flex-1">
+    <div className="flex flex-col flex-1 min-h-0">
       <h3 className="text-3xl text-fg uppercase mb-1.5" style={{ fontFamily: "var(--font-bebas)", letterSpacing: "0.06em" }}>
-        {t({ fr: "Choisir une Date", en: "Choose a Date", es: "Elegir una Fecha", it: "Scegli una Data" })}
+        {t({ fr: "Choisir une Date", en: "Choose a Date", es: "Elegir una Fecha", it: "Scegli une Data" })}
       </h3>
-      <p className="text-fg/40 text-sm" style={{ fontFamily: "var(--font-inter)", marginBottom: "16px" }}>
+      <p className="text-fg/40 text-sm mb-3" style={{ fontFamily: "var(--font-inter)" }}>
         {t({ fr: "Sélectionnez votre date préférée", en: "Select your preferred date", es: "Seleccione su fecha preferida", it: "Seleziona la tua data preferita" })}
       </p>
 
-      <div className="mb-4 overflow-x-auto pb-4 scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch' }}>
-        <div className="flex gap-2 min-w-max">
+      <div
+        data-lenis-prevent="true"
+        className="flex-1 min-h-0 max-h-[220px] sm:max-h-[240px] overflow-y-auto mb-4 pr-2 show-scrollbar"
+        style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
+      >
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
           {!mounted ? (
-            Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex-none w-[76px] h-[58px] rounded-xl border border-theme bg-surface2/30 animate-pulse" />
+            Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="h-[58px] rounded-xl border border-theme bg-surface2/30 animate-pulse" />
             ))
           ) : (
             days.map((dt) => {
               const v = iso(dt); const sel = date === v;
               return (
                 <button key={v} onClick={() => setDate(v)}
-                  className={`flex-none flex flex-col items-center justify-center py-2 px-4 min-w-[76px] rounded-xl border transition-all ${sel ? "bg-[#7CB895] text-[#0A0A0A] border-[#7CB895] shadow-[0_0_12px_rgba(124,184,149,0.3)]" : "border-theme bg-surface2/30 hover:border-[#7CB895]/50 hover:bg-surface2/70"}`}
+                  className={`flex flex-col items-center justify-center py-2.5 px-2 rounded-xl border transition-all ${sel ? "bg-[#7CB895] text-[#0A0A0A] border-[#7CB895] shadow-[0_0_12px_rgba(124,184,149,0.3)] font-semibold" : "border-theme bg-surface2/30 hover:border-[#7CB895]/50 hover:bg-surface2/70"}`}
                   style={{ fontFamily: "var(--font-inter)" }}>
-                  <span className={`text-[0.55rem] uppercase tracking-wider mb-1 ${sel ? "text-[#0A0A0A]/70 font-bold" : "text-fg/40"}`}>
+                  <span className={`text-[0.55rem] uppercase tracking-wider mb-0.5 ${sel ? "text-[#0A0A0A]/70 font-bold" : "text-fg/40"}`}>
                     {fmtWeekday(dt)}
                   </span>
-                  <span className={`text-sm ${sel ? "text-[#0A0A0A] font-bold" : "text-fg"}`}>
+                  <span className={`text-xs sm:text-sm ${sel ? "text-[#0A0A0A] font-bold" : "text-fg"}`}>
                     {fmtDayMonth(dt)}
                   </span>
                 </button>
@@ -101,7 +152,7 @@ function StepDate({ d, next, t }: { d: Draft; next: (v: Partial<Draft>) => void;
       </div>
 
       <button disabled={!date} onClick={() => next({ date })}
-        className="w-full mt-auto py-4 bg-[#7CB895] text-[#0A0A0A] font-semibold text-sm tracking-[0.15em] uppercase rounded-xl disabled:opacity-30 hover:bg-[#6aaa83] transition-colors"
+        className="w-full mt-auto py-3.5 bg-[#7CB895] text-[#0A0A0A] font-semibold text-sm tracking-[0.15em] uppercase rounded-xl disabled:opacity-30 hover:bg-[#6aaa83] transition-colors"
         style={{ fontFamily: "var(--font-inter)" }}>{t({ fr: "Suivant →", en: "Next →", es: "Siguiente →", it: "Avanti →" })}</button>
     </div>
   );
@@ -192,15 +243,38 @@ function StepGuests({ d, next, back, t }: { d: Draft; next: (v: Partial<Draft>) 
 /* ── Step 2: Time slot ───────────────────────────────────────────────────── */
 function StepTime({ d, next, back, t }: { d: Draft; next: (v: Partial<Draft>) => void; back: () => void; t: any }) {
   const [time, setTime] = useState(d.time);
+  const isTodayInTz = d.date === getIsoInTz(new Date());
+  const nowTz = isTodayInTz ? getCurrentTimeInTz() : null;
+
+  const isSlotPast = (slot: string) => {
+    if (!nowTz) return false;
+    const [sh, sm] = slot.split(":").map(Number);
+    return nowTz.hour > sh || (nowTz.hour === sh && nowTz.minute >= sm);
+  };
+
   const SlotGroup = ({ label, slots }: { label: string; slots: string[] }) => (
     <div className="mb-4">
       <div className="text-[0.6rem] tracking-[0.3em] uppercase text-fg/30 mb-2" style={{ fontFamily: "var(--font-inter)" }}>{label}</div>
       <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-        {slots.map((s) => (
-          <button key={s} onClick={() => setTime(s)}
-            className={`py-3 rounded-xl text-sm border transition-all ${time === s ? "bg-[#7CB895] text-[#0A0A0A] border-[#7CB895] font-semibold" : "border-theme bg-surface2/30 text-fg-muted hover:border-[#7CB895]/40"}`}
-            style={{ fontFamily: "var(--font-inter)" }}>{s}</button>
-        ))}
+        {slots.map((s) => {
+          const disabled = isSlotPast(s);
+          const sel = time === s;
+          return (
+            <button
+              key={s}
+              disabled={disabled}
+              onClick={() => setTime(s)}
+              className={`py-3 rounded-xl text-sm border transition-all ${
+                sel
+                  ? "bg-[#7CB895] text-[#0A0A0A] border-[#7CB895] font-semibold"
+                  : "border-theme bg-surface2/30 text-fg-muted hover:border-[#7CB895]/40"
+              } disabled:opacity-30 disabled:pointer-events-none disabled:hover:border-theme`}
+              style={{ fontFamily: "var(--font-inter)" }}
+            >
+              {s}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -212,7 +286,7 @@ function StepTime({ d, next, back, t }: { d: Draft; next: (v: Partial<Draft>) =>
       <SlotGroup label={t({ fr: "Dîner", en: "Dinner", es: "Cena", it: "Cena" })} slots={SLOTS_DINNER} />
       <div className="flex gap-3 mt-auto pt-4">
         <button onClick={back} className="flex-1 py-4 border border-theme text-fg-muted text-sm tracking-widest uppercase rounded-xl hover:bg-surface2/50 transition-colors" style={{ fontFamily: "var(--font-inter)" }}>← {t({ fr: "Retour", en: "Back", es: "Volver", it: "Indietro" })}</button>
-        <button disabled={!time} onClick={() => next({ time })} className="flex-1 py-4 bg-[#7CB895] text-[#0A0A0A] font-semibold text-sm tracking-widest uppercase rounded-xl disabled:opacity-30 hover:bg-[#6aaa83] transition-colors" style={{ fontFamily: "var(--font-inter)" }}>{t({ fr: "Suivant →", en: "Next →", es: "Siguiente →", it: "Avanti →" })}</button>
+        <button disabled={!time || isSlotPast(time)} onClick={() => next({ time })} className="flex-1 py-4 bg-[#7CB895] text-[#0A0A0A] font-semibold text-sm tracking-widest uppercase rounded-xl disabled:opacity-30 hover:bg-[#6aaa83] transition-colors" style={{ fontFamily: "var(--font-inter)" }}>{t({ fr: "Suivant →", en: "Next →", es: "Siguiente →", it: "Avanti →" })}</button>
       </div>
     </div>
   );
@@ -260,15 +334,17 @@ function StepContact({ d, onSubmit, back, t }: {
             className="absolute opacity-0 pointer-events-none h-0 overflow-hidden" aria-hidden="true" />
         </div>
         {err && <p className="text-red-400 text-xs mb-3">⚠ {err}</p>}
-        <div className="flex gap-3 mt-auto">
-          <button onClick={back} className="flex-1 py-4 border border-theme text-fg-muted text-sm tracking-widest uppercase rounded-xl hover:bg-surface2/50 transition-colors" style={{ fontFamily: "var(--font-inter)" }}>← {t({ fr: "Retour", en: "Back", es: "Volver", it: "Indietro" })}</button>
-          <button onClick={handleConfirm} className="flex-1 py-4 bg-[#F3CDA0] text-[#0A0A0A] font-semibold text-sm tracking-widest uppercase rounded-xl hover:bg-[#e8bb88] transition-colors" style={{ fontFamily: "var(--font-inter)" }}>
-            {t({ fr: "Confirmer ✓", en: "Confirm ✓", es: "Confirmar ✓", it: "Conferma ✓" })}
-          </button>
+        <div className="mt-auto pt-2 space-y-2">
+          <div className="flex gap-3">
+            <button onClick={back} className="flex-1 py-3.5 border border-theme text-fg-muted text-sm tracking-widest uppercase rounded-xl hover:bg-surface2/50 transition-colors" style={{ fontFamily: "var(--font-inter)" }}>← {t({ fr: "Retour", en: "Back", es: "Volver", it: "Indietro" })}</button>
+            <button onClick={handleConfirm} className="flex-1 py-3.5 bg-[#F3CDA0] text-[#0A0A0A] font-semibold text-sm tracking-widest uppercase rounded-xl hover:bg-[#e8bb88] transition-colors" style={{ fontFamily: "var(--font-inter)" }}>
+              {t({ fr: "Confirmer ✓", en: "Confirm ✓", es: "Confirmar ✓", it: "Conferma ✓" })}
+            </button>
+          </div>
+          <p className="text-fg/30 text-[0.6rem] text-center tracking-wider" style={{ fontFamily: "var(--font-inter)" }}>
+            🔒 {t({ fr: "Vérification anti-robot requise à l'étape suivante", en: "Anti-bot check required at the next step", es: "Verificación anti-robot requerida en el siguiente paso", it: "Verifica anti-robot richiesta al prossimo passaggio" })}
+          </p>
         </div>
-        <p className="text-fg/20 text-[0.6rem] text-center tracking-wider" style={{ fontFamily: "var(--font-inter)", marginTop: "10px" }}>
-          🔒 {t({ fr: "Vérification anti-robot requise à l'étape suivante", en: "Anti-bot check required at the next step", es: "Verificación anti-robot requerida en el siguiente paso", it: "Verifica anti-robot richiesta al prossimo passaggio" })}
-        </p>
       </div>
 
       {/* ── Bot check modal ── */}
@@ -319,11 +395,13 @@ export default function ReservationSection({ onClose }: { onClose: () => void })
   // Track when the section first mounts for timing check
   useEffect(() => { startedAt.current = Date.now(); }, []);
 
-  // Lock body scroll when overlay is open
+  // Lock body scroll & stop Lenis smooth scroll when overlay is open
   useEffect(() => {
     document.body.style.overflow = "hidden";
+    (window as any).lenis?.stop();
     return () => {
       document.body.style.overflow = "";
+      (window as any).lenis?.start();
     };
   }, []);
 
@@ -377,6 +455,7 @@ export default function ReservationSection({ onClose }: { onClose: () => void })
 
   return (
     <motion.div
+      data-lenis-prevent="true"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -388,6 +467,7 @@ export default function ReservationSection({ onClose }: { onClose: () => void })
 
       {/* Modal Card */}
       <motion.div
+        data-lenis-prevent="true"
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -407,7 +487,7 @@ export default function ReservationSection({ onClose }: { onClose: () => void })
         </button>
 
         {/* Modal content */}
-        <div className="relative px-6 py-12 md:p-12 lg:p-16 overflow-y-auto max-h-[85vh]">
+        <div data-lenis-prevent="true" className="relative px-6 py-12 md:p-12 lg:p-16 overflow-y-auto max-h-[85vh]">
           {/* Subtle glow */}
           <div className="absolute top-1/3 right-0 w-[400px] h-[400px] pointer-events-none blur-[120px] opacity-[0.06]"
             style={{ background: "radial-gradient(circle, #F3CDA0, transparent 70%)" }} aria-hidden />
@@ -464,7 +544,7 @@ export default function ReservationSection({ onClose }: { onClose: () => void })
               className="w-full max-w-lg mx-auto"
             >
               <div
-                className="rounded-2xl p-8 backdrop-blur-sm min-h-[420px] flex flex-col"
+                className="rounded-2xl p-6 sm:p-8 backdrop-blur-sm min-h-[480px] sm:min-h-[500px] flex flex-col"
                 style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--card-shadow)" }}
               >
                 {step < 4 && <StepIndicator step={step} total={4} />}
