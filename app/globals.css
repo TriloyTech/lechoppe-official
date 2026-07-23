@@ -102,6 +102,28 @@ html { scroll-behavior: smooth; }
 * { -ms-overflow-style: none; scrollbar-width: none; }
 *::-webkit-scrollbar { display: none; }
 
+/* ── Custom visible scrollbar for scrollable containers ── */
+.show-scrollbar {
+  -ms-overflow-style: auto !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(124, 184, 149, 0.4) rgba(255, 255, 255, 0.05);
+}
+.show-scrollbar::-webkit-scrollbar {
+  display: block !important;
+  width: 6px !important;
+}
+.show-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 9999px;
+}
+.show-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(124, 184, 149, 0.4);
+  border-radius: 9999px;
+}
+.show-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(124, 184, 149, 0.7);
+}
+
 /* ── Form input fixes ── */
 input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="time"]::-webkit-calendar-picker-indicator {

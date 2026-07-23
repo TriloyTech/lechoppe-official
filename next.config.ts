@@ -11,6 +11,9 @@ const nextConfig: NextConfig = {
       { protocol: "http", hostname: "**" },
     ],
   },
+  env: {
+    RESERVATION_TIMEZONE: process.env.RESERVATION_TIMEZONE || "Europe/Paris",
+  },
 };
 
 export default nextConfig;
