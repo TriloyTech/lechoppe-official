@@ -6,13 +6,12 @@ services:
     container_name: lechoppe-app
     restart: unless-stopped
     ports:
-      - 3000:3000
+      - "3000:3000"
     env_file:
       - .env
     environment:
       HOSTNAME: 0.0.0.0
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-lechoppe_user}:${POSTGRES_PASSWORD:-change_this_password}@global-postgres-16:5432/${POSTGRES_DB:-lechoppe}
       UPLOAD_DIR: /app/.next/standalone/public/uploads/menu
     volumes:
       - uploads_data:/app/.next/standalone/public/uploads
