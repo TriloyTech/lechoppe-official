@@ -41,9 +41,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# ── AI agent configuration (private) ──
-AGENTS.md
-CLAUDE.md
 
 # ── SQL setup scripts (private) ──
 supabase_setup.sql
