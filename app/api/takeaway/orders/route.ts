@@ -4,12 +4,12 @@ import { pool } from "@/lib/postgres/db";
 import { DEFAULT_TAKEAWAY_SETTINGS, type LocalizedText, type TakeawaySettings } from "@/lib/takeaway/types";
 import { applyDiscountToVatBreakdown, calculateUnitPrice, calculateVatBreakdown, fromCents, mergeVatBreakdowns, toCents } from "@/lib/takeaway/pricing";
 import { generateCandidateReference, generateTrackingToken, hashTrackingToken, MAX_REFERENCE_ATTEMPTS } from "@/lib/takeaway/security";
-import { isValidPickupTime } from "@/lib/takeaway/slots";
+import { generateSlots, isValidPickupTime } from "@/lib/takeaway/slots";
 import { parseOrderPayload } from "@/lib/takeaway/validation";
 import { sendOrderConfirmation } from "@/lib/email";
 
 const attempts = new Map<string, number[]>();
-const PUBLIC_ERRORS = new Set(["Takeaway ordering is closed", "Pickup slot is no longer valid", "An item or option is unavailable", "Item unavailable", "Invalid option selection", "An option group is unavailable", "Option selection requirements changed", "Item quantity limit exceeded", "Invalid promotion code", "Order is below the minimum amount", "Order exceeds the maximum amount"]);
+const PUBLIC_ERRORS = new Set(["Takeaway ordering is closed", "Pickup slot is no longer valid", "ASAP must use the earliest available slot", "An item or option is unavailable", "Item unavailable", "Invalid option selection", "An option group is unavailable", "Option selection requirements changed", "Item quantity limit exceeded", "Invalid promotion code", "Order is below the minimum amount", "Order exceeds the maximum amount"]);
 function rateLimited(key: string) { const now = Date.now(); const recent = (attempts.get(key) ?? []).filter((value) => value > now - 10 * 60_000); recent.push(now); attempts.set(key, recent); return recent.length > 5; }
 
 async function insertOrder(client: PoolClient, values: unknown[]) {
@@ -38,15 +38,16 @@ export async function POST(request: NextRequest) {
   try {
     await client.query("BEGIN"); await client.query("SET LOCAL statement_timeout = '10s'");
     const pickup = new Date(body.pickup_time); await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`takeaway_slot:${pickup.toISOString()}`]);
-    const settingsResult = await client.query("SELECT value FROM site_settings WHERE key = $1", ["takeaway_settings"]); const settings: TakeawaySettings = { ...DEFAULT_TAKEAWAY_SETTINGS, ...(settingsResult.rows[0]?.value ?? {}) };
+    const settingsResult = await client.query("SELECT value FROM site_settings WHERE key = $1 FOR SHARE", ["takeaway_settings"]); const settings: TakeawaySettings = { ...DEFAULT_TAKEAWAY_SETTINGS, ...(settingsResult.rows[0]?.value ?? {}) };
     if (!settings.takeaway_enabled || settings.pause_mode) throw new Error("Takeaway ordering is closed");
     if (!isValidPickupTime(pickup, settings)) throw new Error("Pickup slot is no longer valid");
+    if (body.pickup_time_type === "asap" && generateSlots(settings)[0]?.toISOString() !== pickup.toISOString()) throw new Error("ASAP must use the earliest available slot");
     if (settings.max_orders_per_slot > 0) { const count = await client.query("SELECT count(*)::int AS count FROM takeaway_orders WHERE pickup_time = $1 AND status <> 'CANCELLED'", [pickup]); if (count.rows[0].count >= settings.max_orders_per_slot) { await client.query("ROLLBACK"); return NextResponse.json({ error: "Pickup slot is full" }, { status: 409 }); } }
     const itemIds = [...new Set(body.items.map((line) => line.item_id))]; const choiceIds = [...new Set(body.items.flatMap((line) => line.choice_ids))];
     const [itemsResult, choicesResult, linksResult] = await Promise.all([
-      client.query("SELECT id, name, description, price, vat_rate, max_quantity_per_order FROM menu_items WHERE id = ANY($1::uuid[]) AND available AND takeaway_available AND vat_rate IS NOT NULL", [itemIds]),
-      choiceIds.length ? client.query("SELECT c.id, c.group_id, c.name, c.price_modifier, c.vat_rate_override, c.is_available, g.name AS group_name, g.selection_type, g.min_selections, g.max_selections, g.is_required, g.is_active FROM takeaway_option_choices c JOIN takeaway_option_groups g ON g.id = c.group_id WHERE c.id = ANY($1::uuid[])", [choiceIds]) : Promise.resolve({ rows: [] }),
-      client.query("SELECT link.item_id, link.group_id, g.selection_type, g.min_selections, g.max_selections, g.is_required, g.is_active FROM menu_item_option_groups link JOIN takeaway_option_groups g ON g.id = link.group_id WHERE link.item_id = ANY($1::uuid[])", [itemIds]),
+      client.query("SELECT id, name, description, price, vat_rate, max_quantity_per_order FROM menu_items WHERE id = ANY($1::uuid[]) AND available AND takeaway_available AND vat_rate IS NOT NULL FOR SHARE", [itemIds]),
+      choiceIds.length ? client.query("SELECT c.id, c.group_id, c.name, c.price_modifier, c.vat_rate_override, c.is_available, g.name AS group_name, g.selection_type, g.min_selections, g.max_selections, g.is_required, g.is_active FROM takeaway_option_choices c JOIN takeaway_option_groups g ON g.id = c.group_id WHERE c.id = ANY($1::uuid[]) FOR SHARE OF c, g", [choiceIds]) : Promise.resolve({ rows: [] }),
+      client.query("SELECT link.item_id, link.group_id, g.selection_type, g.min_selections, g.max_selections, g.is_required, g.is_active FROM menu_item_option_groups link JOIN takeaway_option_groups g ON g.id = link.group_id WHERE link.item_id = ANY($1::uuid[]) FOR SHARE OF link, g", [itemIds]),
     ]);
     if (itemsResult.rows.length !== itemIds.length || choicesResult.rows.length !== choiceIds.length) throw new Error("An item or option is unavailable");
     const itemMap = new Map(itemsResult.rows.map((row) => [row.id, row])); const choiceMap = new Map(choicesResult.rows.map((row) => [row.id, row])); const groupsByItem = new Map<string, typeof linksResult.rows>(); for (const link of linksResult.rows) { const list = groupsByItem.get(link.item_id) ?? []; list.push(link); groupsByItem.set(link.item_id, list); }
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
     const snapshot: Record<string, unknown> = { order_reference: "", currency: "EUR", placed_at: new Date().toISOString(), customer: { name: body.customer_name, phone: body.customer_phone, email: body.customer_email, pickup_type: body.pickup_time_type, pickup_time: pickup.toISOString(), notes: body.customer_notes || null }, items: snapshotItems, totals: { subtotal_ttc: fromCents(subtotalCents), discount_ttc: fromCents(discountCents), promo_code: promoCode, final_total_ttc: fromCents(finalCents), vat_breakdown: applyDiscountToVatBreakdown(mergeVatBreakdowns(vatEntries), subtotalCents, finalCents) }, cancellation: { reason_code: null, reason_label: null, note: null } };
     const order = await insertOrder(client, [hashTrackingToken(token), body.customer_name, body.customer_email, body.customer_phone, body.pickup_time_type, pickup, body.customer_notes || null, fromCents(subtotalCents), fromCents(discountCents), promoCode, fromCents(finalCents), snapshot, body.lang]);
     await client.query("INSERT INTO takeaway_order_events (order_id, event_type, previous_status, new_status, performed_by) VALUES ($1,'ORDER_CREATED',NULL,'NEW','customer')", [order.id]); await client.query("COMMIT");
-    void sendOrderConfirmation({ to: body.customer_email, lang: body.lang, reference: order.order_reference, pickup: pickup.toLocaleString(body.lang, { timeZone: "Europe/Paris" }), total: fromCents(finalCents), trackingUrl: `${request.nextUrl.origin}/takeaway/order/${token}`, items: snapshotItems.map((item) => ({ quantity: item.quantity, name: item.name })) }).catch((error) => console.error("Takeaway confirmation email failed", error));
+    void sendOrderConfirmation({ to: body.customer_email, lang: body.lang, reference: order.order_reference, pickup: pickup.toLocaleString(body.lang, { timeZone: "Europe/Paris" }), total: fromCents(finalCents), trackingUrl: `${request.nextUrl.origin}/takeaway/order/${token}`, items: snapshotItems.map((item) => ({ quantity: item.quantity, name: item.name, options: item.selected_options.map((option) => option.choice_name[body.lang]) })) }).catch((error) => console.error("Takeaway confirmation email failed", error));
     return NextResponse.json({ success: true, order_reference: order.order_reference, tracking_url: `/takeaway/order/${token}` }, { status: 201 });
   } catch (error) { await client.query("ROLLBACK").catch(() => undefined); const message = error instanceof Error && PUBLIC_ERRORS.has(error.message) ? error.message : "Order creation failed"; if (message === "Order creation failed") console.error("Takeaway order creation failed", error); return NextResponse.json({ error: message }, { status: message === "Order creation failed" ? 500 : 400 }); } finally { client.release(); }
 }

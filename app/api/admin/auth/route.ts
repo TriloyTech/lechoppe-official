@@ -1,23 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const PASSPHRASE = process.env.ADMIN_PASSPHRASE ?? "lechoppe-admin-2026";
-const COOKIE_NAME = "lechoppe_admin_auth";
-const MAX_AGE = 60 * 60 * 8; // 8 hours
+import { ADMIN_COOKIE_NAME, ADMIN_SESSION_MAX_AGE, createAdminSessionToken, getAdminPassphrase, verifyAdminPassphrase } from "@/lib/admin/auth";
 
 export async function POST(req: NextRequest) {
   try {
     const { passphrase } = await req.json();
 
-    if (passphrase !== PASSPHRASE) {
+    const configuredPassphrase = getAdminPassphrase();
+    if (!configuredPassphrase) return NextResponse.json({ error: "Admin authentication is not configured" }, { status: 503 });
+    if (!verifyAdminPassphrase(passphrase)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const response = NextResponse.json({ ok: true });
-    response.cookies.set(COOKIE_NAME, "1", {
+    response.cookies.set(ADMIN_COOKIE_NAME, createAdminSessionToken(), {
       httpOnly: true,
       secure:   process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge:   MAX_AGE,
+      maxAge:   ADMIN_SESSION_MAX_AGE,
       path:     "/",
     });
     return response;
@@ -28,6 +27,6 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE() {
   const response = NextResponse.json({ ok: true });
-  response.cookies.delete(COOKIE_NAME);
+  response.cookies.delete(ADMIN_COOKIE_NAME);
   return response;
 }

@@ -7,6 +7,7 @@ import { STATIC_MENU, MenuItem, fmt } from "@/data/menu";
 import { useLang } from "@/context/LangContext";
 import { useCategories } from "@/lib/hooks/useCategories";
 import { useMobileMotion } from "@/lib/hooks/useMobileMotion";
+import Link from "next/link";
 
 const PHONE_NUMBER = "+33 1 53 27 95 39";
 const PHONE_RAW    = "+33153279539";
@@ -176,6 +177,8 @@ function PriceBadge({ price }: { price: number }) {
 }
 
 /* ── Single menu card ────────────────────────────────────────────────────── */
+function TakeawayLink() { const { t } = useLang(); return <Link href="/takeaway" className="inline-flex items-center gap-1 rounded-full border border-theme px-2 py-0.5 text-[0.5rem] uppercase tracking-widest text-fg">🥡 {t({ fr: "Commander", en: "Order", es: "Pedir", it: "Ordina" })}</Link>; }
+
 function MenuCard({ item }: { item: MenuItem }) {
   const { t } = useLang();
   const sold     = !item.available;
@@ -304,7 +307,7 @@ function MenuCard({ item }: { item: MenuItem }) {
             {item.category}
           </span>
           {item.takeaway_available === true && item.available && (
-            <OrderNowButton />
+            <TakeawayLink />
           )}
         </div>
       </div>

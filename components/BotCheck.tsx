@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useLang } from "@/context/LangContext";
 
 interface Props {
   onPass: (token: string) => void;
@@ -25,6 +26,7 @@ function makeToken(answer: number) {
 }
 
 export default function BotCheck({ onPass, onClose }: Props) {
+  const { t } = useLang();
   const [challenge]    = useState(makeChallenge);
   const [input, setInput] = useState("");
   const [status, setStatus] = useState<"idle" | "error" | "pass">("idle");
@@ -84,12 +86,12 @@ export default function BotCheck({ onPass, onClose }: Props) {
         </div>
 
         <h2 className="text-[2rem] text-fg text-center mb-1" style={bebas}>
-          {status === "pass" ? "Vérifié !" : "Vérification Rapide"}
+          {status === "pass" ? t({ fr: "Vérifié !", en: "Verified!", es: "¡Verificado!", it: "Verificato!" }) : t({ fr: "Vérification rapide", en: "Quick verification", es: "Verificación rápida", it: "Verifica rapida" })}
         </h2>
         <p className="text-fg-muted text-xs text-center tracking-widest uppercase mb-8">
           {status === "pass"
-            ? "Redirection en cours…"
-            : "Prouvez que vous n'êtes pas un robot"}
+            ? t({ fr: "Redirection en cours…", en: "Redirecting…", es: "Redirigiendo…", it: "Reindirizzamento…" })
+            : t({ fr: "Prouvez que vous n'êtes pas un robot", en: "Prove you are not a robot", es: "Demuestre que no es un robot", it: "Dimostra di non essere un robot" })}
         </p>
 
         {status !== "pass" && (
@@ -97,7 +99,7 @@ export default function BotCheck({ onPass, onClose }: Props) {
             {/* Math question */}
             <div className="bg-surface2 border border-theme rounded-xl px-6 py-5 text-center mb-5">
               <p className="text-fg-muted text-[0.6rem] tracking-[0.3em] uppercase mb-2">
-                Quelle est la valeur de
+                {t({ fr: "Quelle est la valeur de", en: "What is the value of", es: "Cuál es el valor de", it: "Qual è il valore di" })}
               </p>
               <p className="text-[3rem] text-[#F3CDA0]" style={bebas}>
                 {challenge.q} = ?
@@ -114,7 +116,7 @@ export default function BotCheck({ onPass, onClose }: Props) {
                 autoFocus
                 value={input}
                 onChange={(e) => { setInput(e.target.value); setStatus("idle"); }}
-                placeholder="Votre réponse…"
+                placeholder={t({ fr: "Votre réponse…", en: "Your answer…", es: "Su respuesta…", it: "La tua risposta…" })}
                 className={`w-full text-center text-xl bg-surface2 border rounded-xl px-4 py-3.5 text-fg placeholder:text-fg-ghost focus:outline-none transition-all duration-200 ${
                   status === "error"
                     ? "border-red-500/60 focus:border-red-500/60"
@@ -125,7 +127,7 @@ export default function BotCheck({ onPass, onClose }: Props) {
               {status === "error" && (
                 <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
                   className="text-red-400 text-xs text-center mt-2">
-                  ⚠ Réponse incorrecte. Réessayez.
+                  ⚠ {t({ fr: "Réponse incorrecte. Réessayez.", en: "Incorrect answer. Try again.", es: "Respuesta incorrecta. Inténtelo de nuevo.", it: "Risposta errata. Riprova." })}
                 </motion.p>
               )}
             </motion.div>
@@ -152,11 +154,11 @@ export default function BotCheck({ onPass, onClose }: Props) {
               disabled={!input}
               className="w-full py-3.5 bg-[#7CB895] text-[#0A0A0A] font-semibold text-sm tracking-[0.15em] uppercase rounded-xl disabled:opacity-30 hover:bg-[#6aaa83] transition-colors"
             >
-              Confirmer →
+              {t({ fr: "Confirmer", en: "Confirm", es: "Confirmar", it: "Conferma" })} →
             </button>
             <button onClick={onClose}
               className="w-full mt-2 py-2 text-xs tracking-widest uppercase text-fg-subtle hover:text-fg-muted transition-colors">
-              Annuler
+              {t({ fr: "Annuler", en: "Cancel", es: "Cancelar", it: "Annulla" })}
             </button>
           </>
         )}

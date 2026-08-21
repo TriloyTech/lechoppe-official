@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pool, assertAllowedTable } from "@/lib/postgres/db";
+import { isAdminRequest } from "@/lib/admin/auth";
 
-const COOKIE_NAME = "lechoppe_admin_auth";
 const PUBLIC_READ_TABLES = new Set(["menu_items", "offers", "site_settings"]);
 const GENERIC_DB_BLOCKED_TABLES = new Set(["takeaway_orders", "takeaway_order_events"]);
 const PUBLIC_SITE_SETTING_KEYS = new Set(["categories", "site_content"]);
@@ -41,7 +41,7 @@ function hasPublicSiteSettingsFilter(filters: Filter[]) {
 }
 
 function isAuthed(req: NextRequest) {
-  return req.cookies.get(COOKIE_NAME)?.value === "1";
+  return isAdminRequest(req);
 }
 
 function checkColumn(table: string, column: string) {
