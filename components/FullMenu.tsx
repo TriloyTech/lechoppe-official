@@ -26,9 +26,7 @@ function useMenuItems() {
           setItems(data.map((row: Record<string, unknown>) => ({
             ...row,
             takeaway_available:
-              row.takeaway_available !== undefined
-                ? Boolean(row.takeaway_available)
-                : row.category !== "drink",
+              row.takeaway_available === true,
           })) as MenuItem[]);
         }
       } catch (err) {
@@ -229,7 +227,7 @@ function MenuCard({ item }: { item: MenuItem }) {
             </span>
           )}
           {/* Takeaway badge — driven by takeaway_available field */}
-          {(item.takeaway_available ?? item.category !== "drink") && !sold && (
+          {item.takeaway_available === true && !sold && (
             <motion.span
               initial={{ opacity: 0, scale: 0.85 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -305,7 +303,7 @@ function MenuCard({ item }: { item: MenuItem }) {
           >
             {item.category}
           </span>
-          {(item.takeaway_available ?? item.category !== "drink") && item.available && (
+          {item.takeaway_available === true && item.available && (
             <OrderNowButton />
           )}
         </div>
@@ -337,7 +335,7 @@ function MenuRow({ item, index }: { item: MenuItem; index: number }) {
           {item.chef_suggestion && !sold && (
             <span className="text-peach text-[0.65rem]" title="Chef's Pick">★</span>
           )}
-          {(item.takeaway_available ?? item.category !== "drink") && !sold && (
+          {item.takeaway_available === true && !sold && (
             <svg width="10" height="10" viewBox="0 0 24 24" fill="rgba(124,184,149,0.45)" aria-label="À emporter">
               <path d="M19 7h-3V6a4 4 0 0 0-8 0v1H5a1 1 0 0 0-1 1v11a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V8a1 1 0 0 0-1-1zm-9-1a2 2 0 0 1 4 0v1h-4V6zm8 13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V9h2v1a1 1 0 0 0 2 0V9h4v1a1 1 0 0 0 2 0V9h2v10z"/>
             </svg>
