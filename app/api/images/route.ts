@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
-
-const COOKIE_NAME = "lechoppe_admin_auth";
+import { isAdminRequest } from "@/lib/admin/auth";
 
 export async function POST(req: NextRequest) {
-  const cookie = req.cookies.get(COOKIE_NAME);
-  if (!cookie || cookie.value !== "1") {
+  if (!isAdminRequest(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

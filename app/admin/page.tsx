@@ -10,6 +10,11 @@ import type { MenuItem, Reservation } from "@/lib/postgres/types";
 import { useLang, LANG_LABELS, LANG_FLAGS, Lang } from "@/context/LangContext";
 import { useCategories, Category, DEFAULT_CATEGORIES } from "@/lib/hooks/useCategories";
 import { useSiteContent, DEFAULT_CONTENT, SiteContent } from "@/lib/hooks/useSiteContent";
+import TakeawayMenuManager from "@/components/admin/takeaway/TakeawayMenuManager";
+import TakeawayOptionGroupsManager from "@/components/admin/takeaway/TakeawayOptionGroupsManager";
+import TakeawaySettingsPanel from "@/components/admin/takeaway/TakeawaySettingsPanel";
+import TakeawayOrdersPanel from "@/components/admin/takeaway/TakeawayOrdersPanel";
+import { buildAdminOfferPayload, createAdminOfferDraft, type AdminOfferDraft } from "@/lib/takeaway/adminOffer";
 
 /* ── Compact language dropdown for admin pages ── */
 function AdminLangDropdown() {
@@ -163,7 +168,7 @@ function AdminSortDropdown({ sortBy, onChange, t }: AdminSortDropdownProps) {
   );
 }
 
-type Tab = "dashboard" | "reservations" | "menu" | "categories" | "content" | "offers" | "appearance" | "settings";
+type Tab = "dashboard" | "reservations" | "menu" | "categories" | "takeaway" | "content" | "offers" | "appearance" | "settings";
 
 const TIME_SLOTS = [
   "12:00","12:30","13:00","13:30",
@@ -206,7 +211,7 @@ function getCategoryLabel(dbVal: string): string {
 
 const EMPTY_DRAFT: MenuDraft = {
   name: "", description: "", price: "", category: "burger",
-  available: true, chef_suggestion: false, takeaway_available: true, image_url: "",
+  available: true, chef_suggestion: false, takeaway_available: false, image_url: "",
   has_allergens: false, allergens_text: "",
 };
 
@@ -253,7 +258,7 @@ function MenuItemModal({
           category: item.category,
           available: item.available ?? true,
           chef_suggestion: item.chef_suggestion ?? false,
-          takeaway_available: item.takeaway_available ?? true,
+          takeaway_available: item.takeaway_available ?? false,
           image_url: item.image_url ?? "",
           has_allergens: item.has_allergens ?? false,
           allergens_text: item.allergens_text ?? "",
@@ -411,7 +416,7 @@ function MenuItemModal({
             </label>
 
             <label className="flex items-center gap-3 cursor-pointer">
-              <div onClick={() => setDraft((p) => ({ ...p, takeaway_available: !p.takeaway_available }))} className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${draft.takeaway_available ? "bg-[#D4AF37]" : "bg-white/10"}`}>
+              <div onClick={() => { if (!draft.takeaway_available && item?.vat_rate == null) { setErr(t({ fr: "Attribuez d’abord la TVA dans le panneau Takeaway.", en: "Assign VAT in the Takeaway panel first.", es: "Asigne primero el IVA en el panel Takeaway.", it: "Assegna prima l’IVA nel pannello Asporto." })); return; } setDraft((p) => ({ ...p, takeaway_available: !p.takeaway_available })); }} className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${draft.takeaway_available ? "bg-[#D4AF37]" : "bg-white/10"}`}>
                 <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-300 ${draft.takeaway_available ? "translate-x-5" : "translate-x-0.5"}`} />
               </div>
               <span className="text-sm text-white/60">🛍️ {t({ fr: "À emporter", en: "Takeaway", es: "Para llevar", it: "Da asporto" })}</span>
@@ -510,15 +515,16 @@ function CategoriesPanel({ t }: { t: any }) {
 
   const save = async () => {
     setSaving(true); setMsg("");
-    const { error } = await db.from("site_settings").upsert({ key: "categories", value: cats }, { onConflict: "key" });
+    const normalized = cats.map((category, index) => ({ ...category, display_order: index }));
+    const { error } = await db.from("site_settings").upsert({ key: "categories", value: normalized }, { onConflict: "key" });
     setMsg(error ? error.message : t({ fr: "Sauvegardé ✓", en: "Saved ✓", es: "Guardado ✓", it: "Salvato ✓" }));
     setSaving(false);
   };
 
-  const add    = () => setCats(p => [...p, { key: `cat_${Date.now()}`, emoji: "🍽️", fr: "Nouvelle catégorie", en: "New Category" }]);
+  const add    = () => setCats(p => [...p, { key: `cat_${Date.now()}`, emoji: "🍽️", fr: "Nouvelle catégorie", en: "New category", es: "Nueva categoría", it: "Nuova categoria", is_active: true, display_order: p.length }]);
   const remove = (i: number) => setCats(p => p.filter((_, j) => j !== i));
   const move   = (i: number, dir: -1 | 1) => { const a = [...cats], b = i + dir; if (b < 0 || b >= a.length) return; [a[i], a[b]] = [a[b], a[i]]; setCats(a); };
-  const upd    = (i: number, f: keyof Category, v: string) => setCats(p => p.map((x, j) => j === i ? { ...x, [f]: v } : x));
+  const upd    = <K extends keyof Category>(i: number, f: K, v: Category[K]) => setCats(p => p.map((x, j) => j === i ? { ...x, [f]: v } : x));
 
   const copyEmoji = (emoji: string) => {
     navigator.clipboard.writeText(emoji);
@@ -557,6 +563,9 @@ function CategoriesPanel({ t }: { t: any }) {
                 <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                   <input value={cat.fr} onChange={e => upd(i, "fr", e.target.value)} className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white/80 outline-none focus:border-[#7CB895]/50 transition-colors" placeholder="FR name" />
                   <input value={cat.en} onChange={e => upd(i, "en", e.target.value)} className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white/80 outline-none focus:border-[#7CB895]/50 transition-colors" placeholder="EN name" />
+                  <input value={cat.es} onChange={e => upd(i, "es", e.target.value)} className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white/80 outline-none focus:border-[#7CB895]/50 transition-colors" placeholder="ES name" />
+                  <input value={cat.it} onChange={e => upd(i, "it", e.target.value)} className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white/80 outline-none focus:border-[#7CB895]/50 transition-colors" placeholder="IT name" />
+                  <label className="text-xs text-white/50"><input className="mr-2" type="checkbox" checked={cat.is_active} onChange={e => upd(i, "is_active", e.target.checked)} />{t({ fr: "Active", en: "Active", es: "Activa", it: "Attiva" })}</label>
                 </div>
                 
                 {/* Remove button on desktop */}
@@ -911,7 +920,7 @@ function OffersPanel({ db, t }: { db: any; t: any }) {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editOffer, setEditOffer] = useState<any | null>(null);
-  const [form, setForm] = useState({ code: "", discount: 10, active: true, expiryType: "infinite", valid_until: "" });
+  const [form, setForm] = useState<AdminOfferDraft>(() => createAdminOfferDraft());
   const [saving, setSaving] = useState(false);
 
   const fetchOffers = async () => {
@@ -942,17 +951,10 @@ function OffersPanel({ db, t }: { db: any; t: any }) {
   const handleOpenModal = (offer?: any) => {
     if (offer) {
       setEditOffer(offer);
-      const hasExp = !!offer.valid_until;
-      setForm({ 
-        code: offer.code, 
-        discount: offer.discount, 
-        active: offer.active,
-        expiryType: hasExp ? "custom" : "infinite",
-        valid_until: hasExp ? new Date(offer.valid_until).toISOString().slice(0, 10) : ""
-      });
+      setForm(createAdminOfferDraft(offer));
     } else {
       setEditOffer(null);
-      setForm({ code: "", discount: 10, active: true, expiryType: "infinite", valid_until: "" });
+      setForm(createAdminOfferDraft());
     }
     setModalOpen(true);
   };
@@ -961,18 +963,7 @@ function OffersPanel({ db, t }: { db: any; t: any }) {
     if (!form.code || (form.expiryType !== "infinite" && !form.valid_until)) return;
     setSaving(true);
     try {
-      // Ensure the validity lasts until the end of the selected day
-      let validUntilTimestamp = null;
-      if (form.expiryType !== "infinite" && form.valid_until) {
-        validUntilTimestamp = new Date(form.valid_until + "T23:59:59.999Z").toISOString();
-      }
-
-      const payload = {
-        code: form.code,
-        discount: form.discount,
-        active: form.active,
-        valid_until: validUntilTimestamp
-      };
+      const payload = buildAdminOfferPayload(form);
 
       if (editOffer) {
         await db.from("offers").update(payload).eq("id", editOffer.id);
@@ -1017,18 +1008,19 @@ function OffersPanel({ db, t }: { db: any; t: any }) {
           <table className="w-full text-left text-sm">
             <thead className="bg-white/5 border-b border-white/10 text-white/40 uppercase tracking-widest text-[0.6rem]">
               <tr>
-                <th className="px-6 py-4">Code</th>
-                <th className="px-6 py-4">Remise</th>
-                <th className="px-6 py-4">Expiration</th>
-                <th className="px-6 py-4">Statut</th>
-                <th className="px-6 py-4 text-right">Actions</th>
+                <th className="px-6 py-4">{t({ fr: "Code", en: "Code", es: "Código", it: "Codice" })}</th>
+                <th className="px-6 py-4">{t({ fr: "Remise", en: "Discount", es: "Descuento", it: "Sconto" })}</th>
+                <th className="px-6 py-4">{t({ fr: "Expiration", en: "Expiration", es: "Caducidad", it: "Scadenza" })}</th>
+                <th className="px-6 py-4">{t({ fr: "Statut", en: "Status", es: "Estado", it: "Stato" })}</th>
+                <th className="px-6 py-4">{t({ fr: "À emporter", en: "Takeaway", es: "Para llevar", it: "Asporto" })}</th>
+                <th className="px-6 py-4 text-right">{t({ fr: "Actions", en: "Actions", es: "Acciones", it: "Azioni" })}</th>
               </tr>
             </thead>
           <tbody className="divide-y divide-white/10">
             {loading ? (
-              <tr><td colSpan={5} className="px-6 py-8 text-center text-white/20">Chargement...</td></tr>
+              <tr><td colSpan={6} className="px-6 py-8 text-center text-white/20">{t({ fr: "Chargement…", en: "Loading…", es: "Cargando…", it: "Caricamento…" })}</td></tr>
             ) : offers.length === 0 ? (
-              <tr><td colSpan={5} className="px-6 py-8 text-center text-white/20">{t({ fr: "Aucune offre", en: "No offers", es: "Sin ofertas", it: "Nessuna offerta" })}</td></tr>
+              <tr><td colSpan={6} className="px-6 py-8 text-center text-white/20">{t({ fr: "Aucune offre", en: "No offers", es: "Sin ofertas", it: "Nessuna offerta" })}</td></tr>
             ) : (
               offers.map(o => (
                 <tr key={o.id} className="hover:bg-white/[0.02]">
@@ -1042,8 +1034,13 @@ function OffersPanel({ db, t }: { db: any; t: any }) {
                       onClick={() => toggleActive(o.id, o.active)}
                       className={`px-3 py-1 rounded text-xs transition-colors ${o.active ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' : 'bg-white/10 text-white/40 hover:bg-white/20'}`}
                     >
-                      {o.active ? t({ fr: "Actif", en: "Active", es: "Activo", it: "Attivo" }) : t("Inactif", "Inactive")}
+                      {o.active ? t({ fr: "Actif", en: "Active", es: "Activo", it: "Attivo" }) : t({ fr: "Inactif", en: "Inactive", es: "Inactivo", it: "Inattivo" })}
                     </button>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`rounded px-3 py-1 text-xs ${o.takeaway_eligible ? "bg-[#7CB895]/20 text-[#7CB895]" : "bg-white/10 text-white/40"}`}>
+                      {o.takeaway_eligible ? t({ fr: "Oui", en: "Yes", es: "Sí", it: "Sì" }) : t({ fr: "Non", en: "No", es: "No", it: "No" })}
+                    </span>
                   </td>
                   <td className="px-6 py-4 text-right flex justify-end gap-3">
                     <button onClick={() => handleOpenModal(o)} className="text-white/40 hover:text-white transition-colors">
@@ -1073,7 +1070,7 @@ function OffersPanel({ db, t }: { db: any; t: any }) {
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-[0.6rem] text-white/40 uppercase tracking-widest mb-1">Code *</label>
+                  <label className="block text-[0.6rem] text-white/40 uppercase tracking-widest mb-1">{t({ fr: "Code *", en: "Code *", es: "Código *", it: "Codice *" })}</label>
                   <input type="text" value={form.code} onChange={e => setForm({ ...form, code: e.target.value.toUpperCase() })} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:border-[#7CB895]/50 outline-none" placeholder="ex: BIENVENUE15" />
                 </div>
                 <div>
@@ -1119,11 +1116,17 @@ function OffersPanel({ db, t }: { db: any; t: any }) {
                     <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${form.active ? 'left-7' : 'left-1'}`} />
                   </button>
                 </div>
+                <div className="flex items-center justify-between pt-2">
+                  <label className="pr-4 text-sm text-white/80">{t({ fr: "Utilisable pour les commandes à emporter", en: "Available for Takeaway orders", es: "Disponible para pedidos para llevar", it: "Disponibile per ordini da asporto" })}</label>
+                  <button type="button" aria-pressed={form.takeaway_eligible} onClick={() => setForm({ ...form, takeaway_eligible: !form.takeaway_eligible })} className={`relative h-6 w-12 shrink-0 rounded-full transition-colors ${form.takeaway_eligible ? "bg-[#7CB895]" : "bg-white/10"}`}>
+                    <span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-all ${form.takeaway_eligible ? "left-7" : "left-1"}`} />
+                  </button>
+                </div>
               </div>
 
               {/* Error message for missing tables */}
               <p className="text-red-400/80 text-[0.6rem] mt-6 text-center leading-relaxed">
-                {t({ fr: "Si la sauvegarde échoue, assurez-vous que la connexion à Supabase est établie.", en: "If saving fails, ensure the Supabase connection is established.", es: "Si el guardado falla, asegúrese de que la conexión a Supabase esté establecida.", it: "Se il salvataggio fallisce, assicurarsi che la connessione a Supabase sia attiva." })}
+                {t({ fr: "Si la sauvegarde échoue, vérifiez la connexion à la base de données et réessayez.", en: "If saving fails, check the database connection and try again.", es: "Si el guardado falla, compruebe la conexión con la base de datos e inténtelo de nuevo.", it: "Se il salvataggio non riesce, controlla la connessione al database e riprova." })}
               </p>
 
               <div className="flex gap-3 mt-4">
@@ -1131,7 +1134,7 @@ function OffersPanel({ db, t }: { db: any; t: any }) {
                   {t({ fr: "Annuler", en: "Cancel", es: "Cancelar", it: "Annulla" })}
                 </button>
                 <button onClick={handleSave} disabled={saving || !form.code || (form.expiryType !== 'infinite' && !form.valid_until)} className={`flex-1 py-2 text-xs uppercase tracking-widest font-semibold rounded-lg transition-colors ${saving || !form.code || (form.expiryType !== 'infinite' && !form.valid_until) ? 'bg-white/10 text-white/30 cursor-not-allowed' : 'bg-[#7CB895] text-black hover:bg-[#6aaa83]'}`}>
-                  {saving ? "..." : (editOffer ? t({ fr: "Mettre à jour", en: "Update", es: "Actualizar", it: "Aggiorna" }) : t("Créer", "Create"))}
+                  {saving ? "..." : (editOffer ? t({ fr: "Mettre à jour", en: "Update", es: "Actualizar", it: "Aggiorna" }) : t({ fr: "Créer", en: "Create", es: "Crear", it: "Crea" }))}
                 </button>
               </div>
             </motion.div>
@@ -1409,6 +1412,7 @@ export default function AdminDashboard() {
                   <SidebarItem icon="🍽️" label={t({ fr: "Menu & Plats", en: "Menu Items", es: "Menú y Platos", it: "Menu e Piatti" })} tab="menu" />
                   <SidebarItem icon="🗂️" label={t({ fr: "Catégories", en: "Categories", es: "Categorías", it: "Categorie" })} tab="categories" />
                   <SidebarItem icon="🎁" label={t({ fr: "Codes Promo", en: "Promo Codes", es: "Códigos Promo", it: "Codici Promo" })} tab="offers" />
+                  <SidebarItem icon="🥡" label="Takeaway" tab="takeaway" />
                   
                   <div className="text-[0.65rem] text-white/20 uppercase tracking-widest mb-3 px-4 mt-8 font-semibold">Site Web CMS</div>
                   <SidebarItem icon="✏️" label={t({ fr: "Contenu & Infos", en: "Content & Info", es: "Contenido e Info", it: "Contenuti e Info" })} tab="content" />
@@ -1451,6 +1455,7 @@ export default function AdminDashboard() {
           <SidebarItem icon="🍽️" label={t({ fr: "Menu & Plats", en: "Menu Items", es: "Menú y Platos", it: "Menu e Piatti" })} tab="menu" />
           <SidebarItem icon="🗂️" label={t({ fr: "Catégories", en: "Categories", es: "Categorías", it: "Categorie" })} tab="categories" />
           <SidebarItem icon="🎁" label={t({ fr: "Codes Promo", en: "Promo Codes", es: "Códigos Promo", it: "Codici Promo" })} tab="offers" />
+          <SidebarItem icon="🥡" label="Takeaway" tab="takeaway" />
           
           <div className="text-[0.65rem] text-white/20 uppercase tracking-widest mb-3 px-4 mt-8 font-semibold">Site Web CMS</div>
           <SidebarItem icon="✏️" label={t({ fr: "Contenu & Infos", en: "Content & Info", es: "Contenido e Info", it: "Contenuti e Info" })} tab="content" />
@@ -1485,6 +1490,7 @@ export default function AdminDashboard() {
             {activeTab === "categories" && <CategoriesPanel t={t} />}
             {activeTab === "content" && <ContentPanel t={t} />}
             {activeTab === "offers" && <OffersPanel db={db} t={t} />}
+            {activeTab === "takeaway" && <div className="max-w-7xl space-y-8"><TakeawayOrdersPanel /><TakeawaySettingsPanel /><TakeawayMenuManager /><TakeawayOptionGroupsManager /></div>}
             
             {activeTab === "reservations" && (
               <div className="max-w-6xl">

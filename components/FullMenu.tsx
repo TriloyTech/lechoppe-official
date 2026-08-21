@@ -6,7 +6,10 @@ import { createClient } from "@/lib/postgres/client";
 import { STATIC_MENU, MenuItem, fmt } from "@/data/menu";
 import { useLang } from "@/context/LangContext";
 import { useCategories } from "@/lib/hooks/useCategories";
+import { activeCategories, categoryLabel, visibleMenuItems } from "@/lib/takeaway/categoryPresentation";
 import { useMobileMotion } from "@/lib/hooks/useMobileMotion";
+import Link from "next/link";
+import { isTakeawayItemActionable } from "@/lib/takeaway/menuEligibility";
 
 const PHONE_NUMBER = "+33 1 53 27 95 39";
 const PHONE_RAW    = "+33153279539";
@@ -26,9 +29,7 @@ function useMenuItems() {
           setItems(data.map((row: Record<string, unknown>) => ({
             ...row,
             takeaway_available:
-              row.takeaway_available !== undefined
-                ? Boolean(row.takeaway_available)
-                : row.category !== "drink",
+              row.takeaway_available === true,
           })) as MenuItem[]);
         }
       } catch (err) {
@@ -42,7 +43,7 @@ function useMenuItems() {
   return { items, loading };
 }
 
-/* ── Supabase storage URL helper ─────────────────────────────────────────── */
+/* ── Image storage URL helper ────────────────────────────────────────────── */
 function resolveImageUrl(raw?: string | null): string | null {
   if (!raw) return null;
   if (raw.startsWith("http")) return raw;
@@ -178,7 +179,9 @@ function PriceBadge({ price }: { price: number }) {
 }
 
 /* ── Single menu card ────────────────────────────────────────────────────── */
-function MenuCard({ item }: { item: MenuItem }) {
+function TakeawayLink({ itemId }: { itemId: string }) { const { t } = useLang(); return <Link href={`/takeaway?item=${encodeURIComponent(itemId)}`} className="inline-flex items-center gap-1 rounded-full border border-theme px-2 py-0.5 text-[0.5rem] uppercase tracking-widest text-fg">🥡 {t({ fr: "Commander", en: "Order", es: "Pedir", it: "Ordina" })}</Link>; }
+
+function MenuCard({ item, category }: { item: MenuItem; category: string }) {
   const { t } = useLang();
   const sold     = !item.available;
   const imageUrl = resolveImageUrl(item.image_url);
@@ -229,7 +232,7 @@ function MenuCard({ item }: { item: MenuItem }) {
             </span>
           )}
           {/* Takeaway badge — driven by takeaway_available field */}
-          {(item.takeaway_available ?? item.category !== "drink") && !sold && (
+          {item.takeaway_available === true && !sold && (
             <motion.span
               initial={{ opacity: 0, scale: 0.85 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -303,10 +306,10 @@ function MenuCard({ item }: { item: MenuItem }) {
             className="text-[0.55rem] tracking-[0.3em] uppercase text-mint/60"
             style={{ fontFamily: "var(--font-inter)" }}
           >
-            {item.category}
+            {category}
           </span>
-          {(item.takeaway_available ?? item.category !== "drink") && item.available && (
-            <OrderNowButton />
+          {isTakeawayItemActionable(item) && (
+            <TakeawayLink itemId={item.id} />
           )}
         </div>
       </div>
@@ -315,7 +318,8 @@ function MenuCard({ item }: { item: MenuItem }) {
 }
 
 /* ── Dotted list row (items without images) ──────────────────────────────── */
-function MenuRow({ item, index }: { item: MenuItem; index: number }) {
+function MenuRow({ item }: { item: MenuItem }) {
+  const { t } = useLang();
   const sold = !item.available;
   return (
     <motion.div
@@ -332,16 +336,12 @@ function MenuRow({ item, index }: { item: MenuItem; index: number }) {
           </span>
           {sold && (
             <span className="text-[0.5rem] tracking-widest uppercase bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded-full"
-              style={{ fontFamily: "var(--font-inter)" }}>Épuisé</span>
+              style={{ fontFamily: "var(--font-inter)" }}>{t({ fr: "Épuisé", en: "Sold Out", es: "Agotado", it: "Esaurito" })}</span>
           )}
           {item.chef_suggestion && !sold && (
             <span className="text-peach text-[0.65rem]" title="Chef's Pick">★</span>
           )}
-          {(item.takeaway_available ?? item.category !== "drink") && !sold && (
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="rgba(124,184,149,0.45)" aria-label="À emporter">
-              <path d="M19 7h-3V6a4 4 0 0 0-8 0v1H5a1 1 0 0 0-1 1v11a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V8a1 1 0 0 0-1-1zm-9-1a2 2 0 0 1 4 0v1h-4V6zm8 13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V9h2v1a1 1 0 0 0 2 0V9h4v1a1 1 0 0 0 2 0V9h2v10z"/>
-            </svg>
-          )}
+          {isTakeawayItemActionable(item) ? <TakeawayLink itemId={item.id} /> : null}
         </div>
         {item.description && (
           <p className="text-fg-muted text-xs leading-relaxed" style={{ fontFamily: "var(--font-inter)" }}>
@@ -402,7 +402,7 @@ function Skeleton() {
 /* ── Main component ──────────────────────────────────────────────────────── */
 export default function FullMenu() {
   const { items, loading } = useMenuItems();
-  const { t }              = useLang();
+  const { t, lang }        = useLang();
   const { categories }     = useCategories();
   const { d }              = useMobileMotion();
   const [active, setActive] = useState<string>("tous");
@@ -410,22 +410,19 @@ export default function FullMenu() {
   const bebas: React.CSSProperties = { fontFamily: "var(--font-bebas)", letterSpacing: "0.04em", lineHeight: 0.92 };
 
   // Build ALL_TABS from live categories ("tous" + each category key)
-  const ALL_TABS = [
-    { key: "tous", emoji: "🍽️", fr: "Tout", en: "All" },
-    ...categories,
-  ];
+  const publicCategories = activeCategories(categories);
+  const ALL_TABS = [{ key: "tous", emoji: "🍽️", fr: "Tout", en: "All", es: "Todo", it: "Tutto" }, ...publicCategories];
 
   // Filter: show all categories when "tous", otherwise only the selected one
-  const visibleItems = active === "tous"
-    ? items
-    : items.filter((m) => m.category === active);
+  const publicItems = visibleMenuItems(items, categories);
+  const visibleItems = active === "tous" ? publicItems : publicItems.filter((m) => m.category === active);
 
   const grouped = visibleItems.reduce<Record<string, MenuItem[]>>((acc, item) => {
     (acc[item.category] ??= []).push(item); return acc;
   }, {});
 
   // Sort groups to match category order from live categories
-  const catOrder = categories.map((c) => c.key);
+  const catOrder = publicCategories.map((c) => c.key);
   const sortedGroups = catOrder.filter((c) => grouped[c]?.length > 0);
   const unknownGroups = Object.keys(grouped).filter((c) => !catOrder.includes(c) && grouped[c]?.length > 0);
   const allGroups = [...sortedGroups, ...unknownGroups];
@@ -433,7 +430,7 @@ export default function FullMenu() {
   /* Items with images → card grid; items without → dotted list rows */
   function renderGroup(cat: string) {
     const catDef    = categories.find((c) => c.key === cat);
-    const catTitle  = t(catDef?.fr || cat, catDef?.en || cat);
+    const catTitle  = categoryLabel(catDef, lang, cat);
     const catEmoji  = catDef?.emoji ?? "🍽️";
     const catItems  = grouped[cat];
     const withImg   = catItems.filter((m) => resolveImageUrl(m.image_url));
@@ -467,7 +464,7 @@ export default function FullMenu() {
             exit="exit"
             className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-4"
           >
-            {withImg.map((item) => <MenuCard key={item.id} item={item} />)}
+            {withImg.map((item) => <MenuCard key={item.id} item={item} category={categoryLabel(catDef, lang, item.category)} />)}
           </motion.div>
         )}
 
@@ -479,7 +476,7 @@ export default function FullMenu() {
             animate="show"
             exit="exit"
           >
-            {noImg.map((item, i) => <MenuRow key={item.id} item={item} index={i} />)}
+            {noImg.map((item) => <MenuRow key={item.id} item={item} />)}
           </motion.div>
         )}
       </div>
@@ -526,7 +523,7 @@ export default function FullMenu() {
                     fontFamily: "var(--font-inter)",
                     backdropFilter: "blur(12px)",
                   }}>
-                  {cat.emoji} {t(cat.fr, cat.en)}
+                  {cat.emoji} {categoryLabel(cat, lang, cat.key)}
                 </button>
               );
             })}

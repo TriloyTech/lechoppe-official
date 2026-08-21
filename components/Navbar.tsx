@@ -16,7 +16,7 @@ const NAV_LINKS = [
 ];
 
 // Separate takeaway link so it can have distinct styling
-const TAKEAWAY_LINK = { fr: "À EMPORTER", en: "TAKEAWAY", es: "PARA LLEVAR", it: "DA ASPORTO", href: "#menu" };
+const TAKEAWAY_LINK = { fr: "À EMPORTER", en: "TAKEAWAY", es: "PARA LLEVAR", it: "DA ASPORTO", href: "/takeaway" };
 
 const DELIVEROO_URL = "https://deliveroo.fr/fr/menu/paris/saint-ambroise/lechoppe-de-paris";
 
@@ -139,6 +139,10 @@ export default function Navbar({ onBookClick }: { onBookClick?: () => void }) {
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     e.preventDefault();
     setOpen(false);
+    if (href.startsWith("/")) {
+      router.push(href);
+      return;
+    }
     if (href.includes("#reservation")) {
       if (onBookClick) {
         onBookClick();

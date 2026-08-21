@@ -44,6 +44,15 @@
   --shadow-sage:   0 0 32px rgba(124,184,149,0.10), 0 2px 12px rgba(0,0,0,0.4);
 }
 
+@media print {
+  @page { size: 80mm auto; margin: 4mm; }
+  body * { visibility: hidden !important; }
+  .takeaway-docket.print-target, .takeaway-docket.print-target * { visibility: visible !important; }
+  .takeaway-docket.print-target { display: block !important; position: absolute; inset: 0 auto auto 0; width: 72mm; color: #000 !important; background: #fff !important; font: 11pt/1.25 monospace; }
+  .takeaway-docket h1, .takeaway-docket h2 { text-align: center; }
+  .takeaway-docket hr { border: 0; border-top: 1px dashed #000; margin: 3mm 0; }
+}
+
 html.light {
   /* ── Light theme  (warm cream — premium editorial) ── */
   --bg:           #F9F4F0;

@@ -1,0 +1,7 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useLang } from "@/context/LangContext";
+
+type Slot = { value: string; type: "asap" | "scheduled"; available: boolean };
+export default function TakeawayPickupSlotPicker({ value, onChange }: { value: Slot | null; onChange: (slot: Slot) => void }) { const { t, lang } = useLang(); const [slots, setSlots] = useState<Slot[]>([]); useEffect(() => { void fetch("/api/takeaway/slots", { cache: "no-store" }).then((r) => r.json()).then((data) => setSlots(data.slots ?? [])); }, []); return <fieldset><legend className="mb-2 text-fg">{t({ fr: "Heure de retrait", en: "Pickup time", es: "Hora de recogida", it: "Ora del ritiro" })}</legend><div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{slots.map((slot) => <button type="button" key={slot.value} disabled={!slot.available} onClick={() => onChange(slot)} className={`rounded-lg border border-theme p-2 text-sm ${value?.value === slot.value ? "bg-fg text-bg" : "text-fg"} disabled:opacity-30`}>{slot.type === "asap" ? t({ fr: "Dès que possible", en: "As soon as possible", es: "Lo antes posible", it: "Il prima possibile" }) : new Intl.DateTimeFormat(lang, { weekday: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" }).format(new Date(slot.value))}</button>)}</div>{slots.length === 0 ? <p className="text-sm text-fg/55">{t({ fr: "Aucun créneau disponible.", en: "No slots available.", es: "No hay horarios disponibles.", it: "Nessuna fascia disponibile." })}</p> : null}</fieldset>; }

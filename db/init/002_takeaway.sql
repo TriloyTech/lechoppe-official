@@ -455,8 +455,7 @@ INSERT INTO site_settings (key, value) VALUES (
     "min_order_amount": 0.00,
     "max_order_amount": 0.00,
     "audio_alert_enabled": true,
-    "accepted_payment_methods": ["cash", "card", "ticket_restaurant", "other"],
-    "takeaway_promo_eligible": false
+    "accepted_payment_methods": ["cash", "card", "ticket_restaurant", "other"]
   }'::jsonb
 ) ON CONFLICT (key) DO NOTHING;
 

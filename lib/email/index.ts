@@ -1,0 +1,12 @@
+import { renderOrderConfirmation } from "./templates/OrderConfirmationEmail";
+import type { Lang } from "@/context/LangContext";
+import type { PaymentMethod } from "@/lib/takeaway/types";
+
+interface ConfirmationInput { to: string; lang: Lang; reference: string; pickup: string; total: number; trackingUrl: string; acceptedPaymentMethods: PaymentMethod[]; items: { quantity: number; name: string; options?: string[] }[] }
+
+export async function sendOrderConfirmation(input: ConfirmationInput) {
+  const rendered = renderOrderConfirmation(input); const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) { console.info(`RESEND_API_KEY missing; confirmation email ${input.reference} not sent`); return; }
+  const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ from: process.env.RESEND_FROM_EMAIL || "L'Échoppe <onboarding@resend.dev>", to: [input.to], subject: rendered.subject, html: rendered.html, text: rendered.text }) });
+  if (!response.ok) throw new Error(`Resend request failed (${response.status})`);
+}
