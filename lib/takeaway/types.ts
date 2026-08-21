@@ -46,6 +46,23 @@ export interface TakeawayOptionGroup {
   choices?: TakeawayOptionChoice[];
 }
 
+export interface PublicTakeawayConfig extends Omit<TakeawaySettings, "audio_alert_enabled" | "max_orders_per_slot"> {}
+
+export interface TakeawayCatalogItem {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  category: string;
+  image_url: string | null;
+  has_allergens: boolean;
+  allergens_text: string | null;
+  vat_rate: number;
+  max_quantity_per_order: number;
+  display_order: number;
+  option_groups: TakeawayOptionGroup[];
+}
+
 export const DEFAULT_TAKEAWAY_SETTINGS: TakeawaySettings = {
   takeaway_enabled: false,
   pause_mode: false,

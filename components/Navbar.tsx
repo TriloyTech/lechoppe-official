@@ -139,6 +139,10 @@ export default function Navbar({ onBookClick }: { onBookClick?: () => void }) {
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     e.preventDefault();
     setOpen(false);
+    if (href.startsWith("/")) {
+      router.push(href);
+      return;
+    }
     if (href.includes("#reservation")) {
       if (onBookClick) {
         onBookClick();
