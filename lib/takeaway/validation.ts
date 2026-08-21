@@ -1,5 +1,5 @@
-import { TECHNICAL_MAX_ITEM_QUANTITY, TECHNICAL_MAX_ORDER_QUANTITY, type CreateOrderPayload } from "./types";
-import { verifyBotChallenge } from "./security";
+import { TECHNICAL_MAX_ITEM_QUANTITY, TECHNICAL_MAX_ORDER_QUANTITY, type CreateOrderPayload } from "./types.ts";
+import { verifyBotChallenge } from "./security.ts";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE = /^(?:\+\d{8,15}|0[67](?:[ .-]?\d{2}){4})$/;
@@ -8,15 +8,24 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 export const MAX_LINE_QUANTITY = TECHNICAL_MAX_ITEM_QUANTITY;
 export const MAX_TOTAL_QUANTITY = TECHNICAL_MAX_ORDER_QUANTITY;
 
+export function normalizeCustomerPhone(value: unknown) {
+  const normalized = String(value ?? "").trim().replace(/[ .-]/g, "");
+  if (!PHONE.test(normalized)) throw new Error("Invalid phone");
+  return normalized;
+}
+
+export function customerContactRateLimitIdentity(email: unknown, phone: unknown) {
+  return `${String(email ?? "").trim().toLowerCase()}|${normalizeCustomerPhone(phone)}`;
+}
+
 export function parseOrderPayload(input: unknown): CreateOrderPayload {
   if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("Invalid payload");
   const body = input as CreateOrderPayload;
   if (body.website) throw new Error("Invalid submission");
   if (!verifyBotChallenge(body.bot_token, body.bot_answer).valid) throw new Error("Bot verification required");
-  body.customer_name = String(body.customer_name ?? "").trim(); body.customer_email = String(body.customer_email ?? "").trim().toLowerCase(); body.customer_phone = String(body.customer_phone ?? "").trim(); body.customer_notes = String(body.customer_notes ?? "").trim();
+  body.customer_name = String(body.customer_name ?? "").trim(); body.customer_email = String(body.customer_email ?? "").trim().toLowerCase(); body.customer_phone = normalizeCustomerPhone(body.customer_phone); body.customer_notes = String(body.customer_notes ?? "").trim();
   if (body.customer_name.length < 2 || body.customer_name.length > 100) throw new Error("Invalid customer name");
   if (!EMAIL.test(body.customer_email) || body.customer_email.length > 254) throw new Error("Invalid email");
-  if (!PHONE.test(body.customer_phone.replace(/[ .-]/g, ""))) throw new Error("Invalid phone");
   if ((body.customer_notes?.length ?? 0) > 500) throw new Error("Notes are too long");
   if (!(["fr", "en", "es", "it"] as string[]).includes(body.lang)) throw new Error("Invalid language");
   if (!(["asap", "scheduled"] as string[]).includes(body.pickup_time_type) || !Number.isFinite(Date.parse(body.pickup_time))) throw new Error("Invalid pickup time");

@@ -1,7 +1,8 @@
 import { renderOrderConfirmation } from "./templates/OrderConfirmationEmail";
 import type { Lang } from "@/context/LangContext";
+import type { PaymentMethod } from "@/lib/takeaway/types";
 
-interface ConfirmationInput { to: string; lang: Lang; reference: string; pickup: string; total: number; trackingUrl: string; items: { quantity: number; name: string; options?: string[] }[] }
+interface ConfirmationInput { to: string; lang: Lang; reference: string; pickup: string; total: number; trackingUrl: string; acceptedPaymentMethods: PaymentMethod[]; items: { quantity: number; name: string; options?: string[] }[] }
 
 export async function sendOrderConfirmation(input: ConfirmationInput) {
   const rendered = renderOrderConfirmation(input); const apiKey = process.env.RESEND_API_KEY;

@@ -8,6 +8,7 @@ import { useLang } from "@/context/LangContext";
 import { useCategories } from "@/lib/hooks/useCategories";
 import { useMobileMotion } from "@/lib/hooks/useMobileMotion";
 import Link from "next/link";
+import { isTakeawayItemActionable } from "@/lib/takeaway/menuEligibility";
 
 const PHONE_NUMBER = "+33 1 53 27 95 39";
 const PHONE_RAW    = "+33153279539";
@@ -306,7 +307,7 @@ function MenuCard({ item }: { item: MenuItem }) {
           >
             {item.category}
           </span>
-          {item.takeaway_available === true && item.available && (
+          {isTakeawayItemActionable(item) && (
             <TakeawayLink itemId={item.id} />
           )}
         </div>
@@ -316,7 +317,8 @@ function MenuCard({ item }: { item: MenuItem }) {
 }
 
 /* ── Dotted list row (items without images) ──────────────────────────────── */
-function MenuRow({ item, index }: { item: MenuItem; index: number }) {
+function MenuRow({ item }: { item: MenuItem }) {
+  const { t } = useLang();
   const sold = !item.available;
   return (
     <motion.div
@@ -333,16 +335,12 @@ function MenuRow({ item, index }: { item: MenuItem; index: number }) {
           </span>
           {sold && (
             <span className="text-[0.5rem] tracking-widest uppercase bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded-full"
-              style={{ fontFamily: "var(--font-inter)" }}>Épuisé</span>
+              style={{ fontFamily: "var(--font-inter)" }}>{t({ fr: "Épuisé", en: "Sold Out", es: "Agotado", it: "Esaurito" })}</span>
           )}
           {item.chef_suggestion && !sold && (
             <span className="text-peach text-[0.65rem]" title="Chef's Pick">★</span>
           )}
-          {item.takeaway_available === true && !sold && (
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="rgba(124,184,149,0.45)" aria-label="À emporter">
-              <path d="M19 7h-3V6a4 4 0 0 0-8 0v1H5a1 1 0 0 0-1 1v11a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V8a1 1 0 0 0-1-1zm-9-1a2 2 0 0 1 4 0v1h-4V6zm8 13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V9h2v1a1 1 0 0 0 2 0V9h4v1a1 1 0 0 0 2 0V9h2v10z"/>
-            </svg>
-          )}
+          {isTakeawayItemActionable(item) ? <TakeawayLink itemId={item.id} /> : null}
         </div>
         {item.description && (
           <p className="text-fg-muted text-xs leading-relaxed" style={{ fontFamily: "var(--font-inter)" }}>
@@ -480,7 +478,7 @@ export default function FullMenu() {
             animate="show"
             exit="exit"
           >
-            {noImg.map((item, i) => <MenuRow key={item.id} item={item} index={i} />)}
+            {noImg.map((item) => <MenuRow key={item.id} item={item} />)}
           </motion.div>
         )}
       </div>

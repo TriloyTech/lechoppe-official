@@ -4,8 +4,8 @@ import { pool } from "@/lib/postgres/db";
 import { type LocalizedText, type TakeawaySettings } from "@/lib/takeaway/types";
 import { applyDiscountToVatBreakdown, calculateUnitPrice, calculateVatBreakdown, fromCents, mergeVatBreakdowns, toCents } from "@/lib/takeaway/pricing";
 import { generateCandidateReference, generateTrackingToken, hashTrackingToken, MAX_REFERENCE_ATTEMPTS } from "@/lib/takeaway/security";
-import { generateSlots, isValidPickupTime } from "@/lib/takeaway/slots";
-import { parseOrderPayload } from "@/lib/takeaway/validation";
+import { classifyPickupSlots, generateSlots } from "@/lib/takeaway/slots";
+import { customerContactRateLimitIdentity, parseOrderPayload } from "@/lib/takeaway/validation";
 import { sendOrderConfirmation } from "@/lib/email";
 import { BoundedRateLimiter, requestRateLimitKey } from "@/lib/takeaway/rateLimit";
 import { percentageDiscountCents, requireEligiblePromotion, validateBusinessQuantity, validateCatalogLookup, validateOptionSelections, validateSubtotalLimits } from "@/lib/takeaway/orderRules";
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
   const networkKey = requestRateLimitKey(request.headers); const networkRate = limiter.consume(networkKey, networkKey === "network:untrusted-proxy" ? 1_000 : 30, 10 * 60_000);
   if (networkRate.limited) return NextResponse.json({ error: "Too many requests" }, { status: 429, headers: { "Retry-After": String(networkRate.retryAfterSeconds) } });
   let body; try { body = parseOrderPayload(await request.json()); } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Invalid request" }, { status: 400 }); }
-  const contactRate = limiter.consume(`contact:${hashTrackingToken(`${body.customer_email}|${body.customer_phone}`)}`, 5, 60 * 60_000);
+  const contactRate = limiter.consume(`contact:${hashTrackingToken(customerContactRateLimitIdentity(body.customer_email, body.customer_phone))}`, 5, 60 * 60_000);
   if (contactRate.limited) return NextResponse.json({ error: "Too many requests" }, { status: 429, headers: { "Retry-After": String(contactRate.retryAfterSeconds) } });
   const client = await pool.connect(); const token = generateTrackingToken();
   try {
@@ -44,9 +44,14 @@ export async function POST(request: NextRequest) {
     const pickup = new Date(body.pickup_time); await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`takeaway_slot:${pickup.toISOString()}`]);
     const settingsResult = await client.query("SELECT value FROM site_settings WHERE key = $1 FOR SHARE", ["takeaway_settings"]); const settings: TakeawaySettings = sanitizeTakeawaySettings(settingsResult.rows[0]?.value);
     if (!settings.takeaway_enabled || settings.pause_mode) throw new Error("Takeaway ordering is closed");
-    if (!isValidPickupTime(pickup, settings)) throw new Error("Pickup slot is no longer valid");
-    if (body.pickup_time_type === "asap" && generateSlots(settings)[0]?.toISOString() !== pickup.toISOString()) throw new Error("ASAP must use the earliest available slot");
-    if (settings.max_orders_per_slot > 0) { const count = await client.query("SELECT count(*)::int AS count FROM takeaway_orders WHERE pickup_time = $1 AND status <> 'CANCELLED'", [pickup]); if (count.rows[0].count >= settings.max_orders_per_slot) { await client.query("ROLLBACK"); return NextResponse.json({ error: "Pickup slot is full" }, { status: 409 }); } }
+    const generatedSlots = generateSlots(settings);
+    if (!generatedSlots.some((slot) => slot.toISOString() === pickup.toISOString())) throw new Error("Pickup slot is no longer valid");
+    const capacity = generatedSlots.length ? await client.query("SELECT pickup_time,count(*)::int AS count FROM takeaway_orders WHERE pickup_time=ANY($1::timestamptz[]) AND status<>'CANCELLED' GROUP BY pickup_time", [generatedSlots]) : { rows: [] };
+    const counts = new Map(capacity.rows.map((row) => [new Date(row.pickup_time).toISOString(), row.count]));
+    const classifiedSlots = classifyPickupSlots(generatedSlots, counts, settings.max_orders_per_slot);
+    const selectedSlot = classifiedSlots.find((slot) => slot.value === pickup.toISOString());
+    if (!selectedSlot?.available) { await client.query("ROLLBACK"); return NextResponse.json({ error: "Pickup slot is full" }, { status: 409 }); }
+    if (body.pickup_time_type === "asap" && selectedSlot.type !== "asap") throw new Error("ASAP must use the earliest available slot");
     const itemIds = [...new Set(body.items.map((line) => line.item_id))]; const choiceIds = [...new Set(body.items.flatMap((line) => line.choice_ids))];
     const [itemsResult, choicesResult, linksResult] = await Promise.all([
       client.query("SELECT id, name, description, price, vat_rate, max_quantity_per_order FROM menu_items WHERE id = ANY($1::uuid[]) AND available AND takeaway_available AND vat_rate IS NOT NULL FOR SHARE", [itemIds]),
@@ -70,7 +75,7 @@ export async function POST(request: NextRequest) {
     const snapshot: Record<string, unknown> = { order_reference: "", currency: "EUR", placed_at: new Date().toISOString(), customer: { name: body.customer_name, phone: body.customer_phone, email: body.customer_email, pickup_type: body.pickup_time_type, pickup_time: pickup.toISOString(), notes: body.customer_notes || null }, items: snapshotItems, totals: { subtotal_ttc: fromCents(subtotalCents), discount_ttc: fromCents(discountCents), promo_code: promoCode, final_total_ttc: fromCents(finalCents), vat_breakdown: applyDiscountToVatBreakdown(mergeVatBreakdowns(vatEntries), subtotalCents, finalCents) }, cancellation: { reason_code: null, reason_label: null, note: null } };
     const order = await insertOrder(client, [hashTrackingToken(token), body.customer_name, body.customer_email, body.customer_phone, body.pickup_time_type, pickup, body.customer_notes || null, fromCents(subtotalCents), fromCents(discountCents), promoCode, fromCents(finalCents), snapshot, body.lang]);
     await client.query("INSERT INTO takeaway_order_events (order_id, event_type, previous_status, new_status, performed_by) VALUES ($1,'ORDER_CREATED',NULL,'NEW','customer')", [order.id]); await client.query("COMMIT");
-    void sendOrderConfirmation({ to: body.customer_email, lang: body.lang, reference: order.order_reference, pickup: pickup.toLocaleString(body.lang, { timeZone: "Europe/Paris" }), total: fromCents(finalCents), trackingUrl: `${request.nextUrl.origin}/takeaway/order/${token}`, items: snapshotItems.map((item) => ({ quantity: item.quantity, name: item.name, options: item.selected_options.map((option) => option.choice_name[body.lang]) })) }).catch((error) => console.error("Takeaway confirmation email failed", error));
+    void sendOrderConfirmation({ to: body.customer_email, lang: body.lang, reference: order.order_reference, pickup: pickup.toLocaleString(body.lang, { timeZone: "Europe/Paris" }), total: fromCents(finalCents), trackingUrl: `${request.nextUrl.origin}/takeaway/order/${token}`, acceptedPaymentMethods: settings.accepted_payment_methods, items: snapshotItems.map((item) => ({ quantity: item.quantity, name: item.name, options: item.selected_options.map((option) => option.choice_name[body.lang]) })) }).catch((error) => console.error("Takeaway confirmation email failed", error));
     return NextResponse.json({ success: true, order_reference: order.order_reference, tracking_url: `/takeaway/order/${token}` }, { status: 201 });
   } catch (error) { await client.query("ROLLBACK").catch(() => undefined); const message = error instanceof Error && PUBLIC_ERRORS.has(error.message) ? error.message : "Order creation failed"; if (message === "Order creation failed") console.error("Takeaway order creation failed", error); const status = message === "Order creation failed" ? 500 : message === "Takeaway ordering is closed" ? 503 : ["Pickup slot is no longer valid", "ASAP must use the earliest available slot", "An item or option is unavailable", "Item unavailable", "Invalid option selection", "Option selection requirements changed"].includes(message) ? 409 : 400; return NextResponse.json({ error: message }, { status }); } finally { client.release(); }
 }

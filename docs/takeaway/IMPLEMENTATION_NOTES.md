@@ -13,3 +13,9 @@ All new static interface text, category names, option-group names, and option-ch
 ## Rate limiting
 
 The dependency-free MVP limiter is bounded and expiring, and applies both network and normalized contact dimensions. Forwarded IP headers are used only when `TRUST_PROXY_HEADERS=true`. Multi-replica deployments should replace process-local counters with a shared store.
+
+Customer emails are trimmed/lowercased and accepted French phone punctuation (`space`, `.`, `-`) is removed before validation, storage, rate-limit identity generation, snapshots, and operational display. International numbers retain their leading `+`.
+
+## Slot generation safety
+
+Operating windows must not overlap. Generated slots are chronologically deduplicated and settings that could produce more than 2,000 slots are rejected. This is a technical response-size/processing ceiling, not a change to the configured interval or advance-order business rules.

@@ -1,4 +1,5 @@
 import { DEFAULT_TAKEAWAY_SETTINGS, type PaymentMethod, type TakeawaySettings } from "./types.ts";
+import { estimateConfiguredSlotCount, MAX_GENERATED_SLOTS } from "./slots.ts";
 
 const PAYMENT_METHODS = new Set<PaymentMethod>(["cash", "card", "ticket_restaurant", "other"]);
 const INTEGER_LIMITS = {
@@ -48,6 +49,10 @@ export function validateTakeawaySettingsPatch(input: unknown): Partial<TakeawayS
       const value = window as { open?: unknown; close?: unknown };
       return typeof value.open !== "string" || typeof value.close !== "string" || !TIME.test(value.open) || !TIME.test(value.close) || value.open >= value.close;
     }))) throw new Error("Invalid operating hours");
+    for (const day of DAYS) {
+      const windows = (hours[day] as { open: string; close: string }[]).toSorted((a, b) => a.open.localeCompare(b.open));
+      if (windows.some((window, index) => index > 0 && window.open < windows[index - 1].close)) throw new Error("Operating hours cannot overlap");
+    }
   }
   return body as Partial<TakeawaySettings>;
 }
@@ -55,6 +60,8 @@ export function validateTakeawaySettingsPatch(input: unknown): Partial<TakeawayS
 export function mergeAndValidateTakeawaySettings(current: unknown, patch: unknown) {
   const cleanPatch = validateTakeawaySettingsPatch(patch);
   const merged = { ...sanitizeTakeawaySettings(current), ...cleanPatch };
+  validateTakeawaySettingsPatch({ operating_hours: merged.operating_hours });
   if (merged.max_order_amount > 0 && merged.min_order_amount > merged.max_order_amount) throw new Error("Minimum order amount cannot exceed maximum order amount");
+  if (estimateConfiguredSlotCount(merged) > MAX_GENERATED_SLOTS) throw new Error(`Takeaway schedule exceeds the technical limit of ${MAX_GENERATED_SLOTS} pickup slots`);
   return { patch: cleanPatch, settings: merged };
 }
