@@ -6,6 +6,7 @@ import { createClient } from "@/lib/postgres/client";
 import { STATIC_MENU, MenuItem, fmt } from "@/data/menu";
 import { useLang } from "@/context/LangContext";
 import { useCategories } from "@/lib/hooks/useCategories";
+import { activeCategories, categoryLabel, visibleMenuItems } from "@/lib/takeaway/categoryPresentation";
 import { useMobileMotion } from "@/lib/hooks/useMobileMotion";
 import Link from "next/link";
 import { isTakeawayItemActionable } from "@/lib/takeaway/menuEligibility";
@@ -42,7 +43,7 @@ function useMenuItems() {
   return { items, loading };
 }
 
-/* ── Supabase storage URL helper ─────────────────────────────────────────── */
+/* ── Image storage URL helper ────────────────────────────────────────────── */
 function resolveImageUrl(raw?: string | null): string | null {
   if (!raw) return null;
   if (raw.startsWith("http")) return raw;
@@ -401,7 +402,7 @@ function Skeleton() {
 /* ── Main component ──────────────────────────────────────────────────────── */
 export default function FullMenu() {
   const { items, loading } = useMenuItems();
-  const { t }              = useLang();
+  const { t, lang }        = useLang();
   const { categories }     = useCategories();
   const { d }              = useMobileMotion();
   const [active, setActive] = useState<string>("tous");
@@ -409,22 +410,19 @@ export default function FullMenu() {
   const bebas: React.CSSProperties = { fontFamily: "var(--font-bebas)", letterSpacing: "0.04em", lineHeight: 0.92 };
 
   // Build ALL_TABS from live categories ("tous" + each category key)
-  const ALL_TABS = [
-    { key: "tous", emoji: "🍽️", fr: "Tout", en: "All" },
-    ...categories,
-  ];
+  const publicCategories = activeCategories(categories);
+  const ALL_TABS = [{ key: "tous", emoji: "🍽️", fr: "Tout", en: "All", es: "Todo", it: "Tutto" }, ...publicCategories];
 
   // Filter: show all categories when "tous", otherwise only the selected one
-  const visibleItems = active === "tous"
-    ? items
-    : items.filter((m) => m.category === active);
+  const publicItems = visibleMenuItems(items, categories);
+  const visibleItems = active === "tous" ? publicItems : publicItems.filter((m) => m.category === active);
 
   const grouped = visibleItems.reduce<Record<string, MenuItem[]>>((acc, item) => {
     (acc[item.category] ??= []).push(item); return acc;
   }, {});
 
   // Sort groups to match category order from live categories
-  const catOrder = categories.map((c) => c.key);
+  const catOrder = publicCategories.map((c) => c.key);
   const sortedGroups = catOrder.filter((c) => grouped[c]?.length > 0);
   const unknownGroups = Object.keys(grouped).filter((c) => !catOrder.includes(c) && grouped[c]?.length > 0);
   const allGroups = [...sortedGroups, ...unknownGroups];
@@ -432,7 +430,7 @@ export default function FullMenu() {
   /* Items with images → card grid; items without → dotted list rows */
   function renderGroup(cat: string) {
     const catDef    = categories.find((c) => c.key === cat);
-    const catTitle  = t(catDef?.fr || cat, catDef?.en || cat);
+    const catTitle  = categoryLabel(catDef, lang, cat);
     const catEmoji  = catDef?.emoji ?? "🍽️";
     const catItems  = grouped[cat];
     const withImg   = catItems.filter((m) => resolveImageUrl(m.image_url));
@@ -525,7 +523,7 @@ export default function FullMenu() {
                     fontFamily: "var(--font-inter)",
                     backdropFilter: "blur(12px)",
                   }}>
-                  {cat.emoji} {t(cat.fr, cat.en)}
+                  {cat.emoji} {categoryLabel(cat, lang, cat.key)}
                 </button>
               );
             })}

@@ -12,6 +12,9 @@ import { BoundedRateLimiter, requestRateLimitKey } from "../lib/takeaway/rateLim
 import { customerContactRateLimitIdentity, normalizeCustomerPhone } from "../lib/takeaway/validation.ts";
 import { buildAdminOrderEditPatch, createAdminOrderEditDraft } from "../lib/takeaway/adminOrderEdit.ts";
 import { isTakeawayItemActionable } from "../lib/takeaway/menuEligibility.ts";
+import { buildAdminOfferPayload, createAdminOfferDraft } from "../lib/takeaway/adminOffer.ts";
+import { activeCategories, categoryLabel, visibleMenuItems } from "../lib/takeaway/categoryPresentation.ts";
+import { appendCreated, removeById, removeGroupChoices } from "../lib/takeaway/optionDraftState.ts";
 
 const solve = (question) => { const [a, op, b] = question.split(" "); return op === "+" ? Number(a) + Number(b) : op === "−" ? Number(a) - Number(b) : Number(a) * Number(b); };
 const settings = { takeaway_enabled: true, pause_mode: false, operating_hours: { monday: [{ open: "12:00", close: "13:00" }], tuesday: [], wednesday: [], thursday: [], friday: [], saturday: [], sunday: [] }, closing_cutoff_minutes: 0, prep_lead_time_minutes: 20, slot_interval_minutes: 15, advance_order_max_days: 0, max_orders_per_slot: 1, min_order_amount: 0, max_order_amount: 0, audio_alert_enabled: true, accepted_payment_methods: ["cash"] };
@@ -23,6 +26,39 @@ test("settings sanitize legacy fields and support GET/PATCH round trips", () => 
   assert.throws(() => mergeAndValidateTakeawaySettings(settings, { operating_hours: { ...settings.operating_hours, monday: [{ open: "12:00", close: "14:00" }, { open: "13:00", close: "15:00" }] } }), /overlap/);
   assert.throws(() => mergeAndValidateTakeawaySettings(settings, { operating_hours: { ...settings.operating_hours, monday: [{ open: "12:00", close: "14:00" }, { open: "12:00", close: "14:00" }] } }), /overlap/);
   const allDay = Object.fromEntries(Object.keys(settings.operating_hours).map((day) => [day, [{ open: "00:00", close: "23:59" }]])); assert.throws(() => mergeAndValidateTakeawaySettings(settings, { operating_hours: allDay, slot_interval_minutes: 1, advance_order_max_days: 31 }), /technical limit/);
+});
+
+test("admin offer drafts default Takeaway eligibility off and preserve explicit edits", () => {
+  const fresh = createAdminOfferDraft();
+  assert.equal(fresh.takeaway_eligible, false);
+  assert.equal(buildAdminOfferPayload(fresh).takeaway_eligible, false);
+  const existing = createAdminOfferDraft({ code: "TAKE20", discount: 20, active: true, takeaway_eligible: true, valid_until: "2026-12-31T23:59:59.999Z" });
+  assert.equal(existing.takeaway_eligible, true);
+  assert.equal(buildAdminOfferPayload(existing).takeaway_eligible, true);
+});
+
+test("shared menu categories localize, order, hide inactive sections, and fall back safely", () => {
+  const categories = [
+    { key: "hidden", emoji: "×", fr: "Masquée", en: "Hidden", es: "Oculta", it: "Nascosta", is_active: false, display_order: 0 },
+    { key: "late", emoji: "2", fr: "Tard", en: "Late", es: "Tarde", it: "Tardi", is_active: true, display_order: 2 },
+    { key: "early", emoji: "1", fr: "Tôt", en: "Early", es: "Temprano", it: "Presto", is_active: true, display_order: 1 },
+  ];
+  assert.deepEqual(activeCategories(categories).map((category) => category.key), ["early", "late"]);
+  assert.deepEqual(visibleMenuItems([{ category: "hidden" }, { category: "early" }, { category: "legacy" }], categories).map((item) => item.category), ["early", "legacy"]);
+  assert.equal(categoryLabel(categories[2], "es", "early"), "Temprano");
+  assert.equal(categoryLabel({ key: "legacy", en: "Legacy", fr: "Héritage" }, "it", "legacy"), "Legacy");
+  assert.equal(categoryLabel({ key: "fallback" }, "it", "fallback"), "fallback");
+});
+
+test("option group CRUD helpers preserve unrelated unsaved drafts", () => {
+  const dirtyGroup = { id: "a", name: { es: "Borrador sin guardar" } };
+  const groups = appendCreated([dirtyGroup, { id: "b", name: { es: "Grupo B" } }], { id: "c", name: { es: "Grupo C" } });
+  assert.equal(groups[0], dirtyGroup);
+  assert.equal(removeById(groups, "c")[0], dirtyGroup);
+  const dirtyChoice = { id: "choice-a", group_id: "a", name: { es: "Opción sin guardar" } };
+  const choices = appendCreated([dirtyChoice, { id: "choice-b", group_id: "b" }], { id: "choice-c", group_id: "b" });
+  assert.equal(removeById(choices, "choice-b")[0], dirtyChoice);
+  assert.equal(removeGroupChoices(choices, "b")[0], dirtyChoice);
 });
 
 test("server-signed bot challenges reject tampering, wrong answers, expiry, and replay", () => {

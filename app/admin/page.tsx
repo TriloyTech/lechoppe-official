@@ -14,6 +14,7 @@ import TakeawayMenuManager from "@/components/admin/takeaway/TakeawayMenuManager
 import TakeawayOptionGroupsManager from "@/components/admin/takeaway/TakeawayOptionGroupsManager";
 import TakeawaySettingsPanel from "@/components/admin/takeaway/TakeawaySettingsPanel";
 import TakeawayOrdersPanel from "@/components/admin/takeaway/TakeawayOrdersPanel";
+import { buildAdminOfferPayload, createAdminOfferDraft, type AdminOfferDraft } from "@/lib/takeaway/adminOffer";
 
 /* ── Compact language dropdown for admin pages ── */
 function AdminLangDropdown() {
@@ -919,7 +920,7 @@ function OffersPanel({ db, t }: { db: any; t: any }) {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editOffer, setEditOffer] = useState<any | null>(null);
-  const [form, setForm] = useState({ code: "", discount: 10, active: true, expiryType: "infinite", valid_until: "" });
+  const [form, setForm] = useState<AdminOfferDraft>(() => createAdminOfferDraft());
   const [saving, setSaving] = useState(false);
 
   const fetchOffers = async () => {
@@ -950,17 +951,10 @@ function OffersPanel({ db, t }: { db: any; t: any }) {
   const handleOpenModal = (offer?: any) => {
     if (offer) {
       setEditOffer(offer);
-      const hasExp = !!offer.valid_until;
-      setForm({ 
-        code: offer.code, 
-        discount: offer.discount, 
-        active: offer.active,
-        expiryType: hasExp ? "custom" : "infinite",
-        valid_until: hasExp ? new Date(offer.valid_until).toISOString().slice(0, 10) : ""
-      });
+      setForm(createAdminOfferDraft(offer));
     } else {
       setEditOffer(null);
-      setForm({ code: "", discount: 10, active: true, expiryType: "infinite", valid_until: "" });
+      setForm(createAdminOfferDraft());
     }
     setModalOpen(true);
   };
@@ -969,18 +963,7 @@ function OffersPanel({ db, t }: { db: any; t: any }) {
     if (!form.code || (form.expiryType !== "infinite" && !form.valid_until)) return;
     setSaving(true);
     try {
-      // Ensure the validity lasts until the end of the selected day
-      let validUntilTimestamp = null;
-      if (form.expiryType !== "infinite" && form.valid_until) {
-        validUntilTimestamp = new Date(form.valid_until + "T23:59:59.999Z").toISOString();
-      }
-
-      const payload = {
-        code: form.code,
-        discount: form.discount,
-        active: form.active,
-        valid_until: validUntilTimestamp
-      };
+      const payload = buildAdminOfferPayload(form);
 
       if (editOffer) {
         await db.from("offers").update(payload).eq("id", editOffer.id);
@@ -1028,15 +1011,16 @@ function OffersPanel({ db, t }: { db: any; t: any }) {
                 <th className="px-6 py-4">Code</th>
                 <th className="px-6 py-4">Remise</th>
                 <th className="px-6 py-4">Expiration</th>
-                <th className="px-6 py-4">Statut</th>
+                <th className="px-6 py-4">{t({ fr: "Statut", en: "Status", es: "Estado", it: "Stato" })}</th>
+                <th className="px-6 py-4">{t({ fr: "À emporter", en: "Takeaway", es: "Para llevar", it: "Asporto" })}</th>
                 <th className="px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
           <tbody className="divide-y divide-white/10">
             {loading ? (
-              <tr><td colSpan={5} className="px-6 py-8 text-center text-white/20">Chargement...</td></tr>
+              <tr><td colSpan={6} className="px-6 py-8 text-center text-white/20">{t({ fr: "Chargement…", en: "Loading…", es: "Cargando…", it: "Caricamento…" })}</td></tr>
             ) : offers.length === 0 ? (
-              <tr><td colSpan={5} className="px-6 py-8 text-center text-white/20">{t({ fr: "Aucune offre", en: "No offers", es: "Sin ofertas", it: "Nessuna offerta" })}</td></tr>
+              <tr><td colSpan={6} className="px-6 py-8 text-center text-white/20">{t({ fr: "Aucune offre", en: "No offers", es: "Sin ofertas", it: "Nessuna offerta" })}</td></tr>
             ) : (
               offers.map(o => (
                 <tr key={o.id} className="hover:bg-white/[0.02]">
@@ -1052,6 +1036,11 @@ function OffersPanel({ db, t }: { db: any; t: any }) {
                     >
                       {o.active ? t({ fr: "Actif", en: "Active", es: "Activo", it: "Attivo" }) : t("Inactif", "Inactive")}
                     </button>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`rounded px-3 py-1 text-xs ${o.takeaway_eligible ? "bg-[#7CB895]/20 text-[#7CB895]" : "bg-white/10 text-white/40"}`}>
+                      {o.takeaway_eligible ? t({ fr: "Oui", en: "Yes", es: "Sí", it: "Sì" }) : t({ fr: "Non", en: "No", es: "No", it: "No" })}
+                    </span>
                   </td>
                   <td className="px-6 py-4 text-right flex justify-end gap-3">
                     <button onClick={() => handleOpenModal(o)} className="text-white/40 hover:text-white transition-colors">
@@ -1127,11 +1116,17 @@ function OffersPanel({ db, t }: { db: any; t: any }) {
                     <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${form.active ? 'left-7' : 'left-1'}`} />
                   </button>
                 </div>
+                <div className="flex items-center justify-between pt-2">
+                  <label className="pr-4 text-sm text-white/80">{t({ fr: "Utilisable pour les commandes à emporter", en: "Available for Takeaway orders", es: "Disponible para pedidos para llevar", it: "Disponibile per ordini da asporto" })}</label>
+                  <button type="button" aria-pressed={form.takeaway_eligible} onClick={() => setForm({ ...form, takeaway_eligible: !form.takeaway_eligible })} className={`relative h-6 w-12 shrink-0 rounded-full transition-colors ${form.takeaway_eligible ? "bg-[#7CB895]" : "bg-white/10"}`}>
+                    <span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-all ${form.takeaway_eligible ? "left-7" : "left-1"}`} />
+                  </button>
+                </div>
               </div>
 
               {/* Error message for missing tables */}
               <p className="text-red-400/80 text-[0.6rem] mt-6 text-center leading-relaxed">
-                {t({ fr: "Si la sauvegarde échoue, assurez-vous que la connexion à Supabase est établie.", en: "If saving fails, ensure the Supabase connection is established.", es: "Si el guardado falla, asegúrese de que la conexión a Supabase esté establecida.", it: "Se il salvataggio fallisce, assicurarsi che la connessione a Supabase sia attiva." })}
+                {t({ fr: "Si la sauvegarde échoue, vérifiez la connexion à la base de données et réessayez.", en: "If saving fails, check the database connection and try again.", es: "Si el guardado falla, compruebe la conexión con la base de datos e inténtelo de nuevo.", it: "Se il salvataggio non riesce, controlla la connessione al database e riprova." })}
               </p>
 
               <div className="flex gap-3 mt-4">

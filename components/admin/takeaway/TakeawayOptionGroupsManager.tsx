@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/postgres/client";
 import { useLang } from "@/context/LangContext";
 import type { LocalizedText, TakeawayOptionChoice, TakeawayOptionGroup } from "@/lib/takeaway/types";
+import { appendCreated, removeById, removeGroupChoices } from "@/lib/takeaway/optionDraftState";
 
 const LANGUAGES = ["fr", "en", "es", "it"] as const;
 const emptyNames = (): LocalizedText => ({ fr: "", en: "", es: "", it: "" });
@@ -34,7 +35,7 @@ export default function TakeawayOptionGroupsManager() {
     if (!newKey.trim() || !validNames(newNames)) return error(t({ fr: "Renseignez la clé et les quatre traductions.", en: "Enter the key and all four translations.", es: "Introduzca la clave y las cuatro traducciones.", it: "Inserisci la chiave e tutte e quattro le traduzioni." }));
     const result = await createClient().from("takeaway_option_groups").insert({ key: newKey.trim(), name: newNames, selection_type: "single", is_required: false, min_selections: 0, max_selections: 1, is_active: true, display_order: groups.length });
     if (result.error) return error(result.error.message);
-    setNewKey(""); setNewNames(emptyNames()); saved(); await load();
+    setGroups((current) => appendCreated(current, result.data)); setNewKey(""); setNewNames(emptyNames()); saved();
   };
 
   const updateGroupDraft = (id: string, patch: Partial<TakeawayOptionGroup>) => setGroups((current) => current.map((group) => {
@@ -54,7 +55,7 @@ export default function TakeawayOptionGroupsManager() {
 
   const addChoice = async (group: TakeawayOptionGroup) => {
     const result = await createClient().from("takeaway_option_choices").insert({ group_id: group.id, name: { fr: "Nouveau choix", en: "New choice", es: "Nueva opción", it: "Nuova scelta" }, price_modifier: 0, vat_rate_override: null, is_available: true, is_default: false, display_order: choices.filter((choice) => choice.group_id === group.id).length });
-    if (result.error) return error(result.error.message); await load();
+    if (result.error) return error(result.error.message); setChoices((current) => appendCreated(current, result.data)); saved();
   };
   const updateChoiceDraft = (id: string, patch: Partial<TakeawayOptionChoice>) => setChoices((current) => current.map((choice) => choice.id === id ? { ...choice, ...patch } : choice));
   const saveChoice = async (choice: TakeawayOptionChoice) => {
@@ -63,8 +64,8 @@ export default function TakeawayOptionGroupsManager() {
     const result = await createClient().from("takeaway_option_choices").update({ name: choice.name, price_modifier: choice.price_modifier, vat_rate_override: choice.vat_rate_override, is_available: choice.is_available, is_default: choice.is_default, display_order: choice.display_order }).eq("id", choice.id);
     if (result.error) return error(result.error.message); if (!result.data?.length) return error(t({ fr: "Ce choix n’existe plus. Rechargez la liste.", en: "This choice no longer exists. Reload the list.", es: "Esta opción ya no existe. Recargue la lista.", it: "Questa scelta non esiste più. Ricarica l’elenco." })); setChoices((current) => current.map((value) => value.id === choice.id ? result.data[0] : value)); saved();
   };
-  const removeGroup = async (group: TakeawayOptionGroup) => { if (!confirm(t({ fr: "Supprimer ce groupe et ses choix ?", en: "Delete this group and its choices?", es: "¿Eliminar este grupo y sus opciones?", it: "Eliminare il gruppo e le scelte?" }))) return; const result = await createClient().from("takeaway_option_groups").delete().eq("id", group.id); if (result.error) return error(result.error.message); await load(); };
-  const removeChoice = async (id: string) => { const result = await createClient().from("takeaway_option_choices").delete().eq("id", id); if (result.error) return error(result.error.message); await load(); };
+  const removeGroup = async (group: TakeawayOptionGroup) => { if (!confirm(t({ fr: "Supprimer ce groupe et ses choix ?", en: "Delete this group and its choices?", es: "¿Eliminar este grupo y sus opciones?", it: "Eliminare il gruppo e le scelte?" }))) return; const result = await createClient().from("takeaway_option_groups").delete().eq("id", group.id); if (result.error) return error(result.error.message); setGroups((current) => removeById(current, group.id)); setChoices((current) => removeGroupChoices(current, group.id)); saved(); };
+  const removeChoice = async (id: string) => { const result = await createClient().from("takeaway_option_choices").delete().eq("id", id); if (result.error) return error(result.error.message); setChoices((current) => removeById(current, id)); saved(); };
 
   return <section className="rounded-2xl border border-theme bg-surface p-5">
     <h2 className="text-2xl text-fg">{t({ fr: "Groupes d’options", en: "Option groups", es: "Grupos de opciones", it: "Gruppi di opzioni" })}</h2>

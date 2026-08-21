@@ -440,11 +440,12 @@ INSERT INTO site_settings (key, value) VALUES (
     "min_order_amount": 0.00,
     "max_order_amount": 0.00,
     "audio_alert_enabled": true,
-    "accepted_payment_methods": ["cash", "card", "ticket_restaurant", "other"],
-    "takeaway_promo_eligible": false
+    "accepted_payment_methods": ["cash", "card", "ticket_restaurant", "other"]
   }'::jsonb
 ) ON CONFLICT (key) DO NOTHING;
 ```
+
+Promotion eligibility is not a global Takeaway setting. It is controlled explicitly for each offer through `offers.takeaway_eligible`, which defaults to `false` and is managed by administrators in the Offers panel.
 
 ---
 
