@@ -56,6 +56,11 @@ export interface SiteContent {
   hero_s4_note_en: string;
 }
 
+interface SiteContentSettingRow {
+  key: string;
+  value: unknown;
+}
+
 export const DEFAULT_CONTENT: SiteContent = {
   tagline_fr:    "Bistronomy parisienne depuis 2014",
   tagline_en:    "Parisian bistronomy since 2014",
@@ -148,7 +153,7 @@ export function useSiteContent() {
         .in("key", ["site_content"]);
 
       if (data?.length) {
-        const row = data.find((d) => d.key === "site_content");
+        const row = data.find((d: SiteContentSettingRow) => d.key === "site_content");
         if (row?.value && typeof row.value === "object") {
           setContent({ ...DEFAULT_CONTENT, ...(row.value as Partial<SiteContent>) });
         }
