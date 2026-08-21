@@ -1,22 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pool } from "@/lib/postgres/db";
-
-// Token format: base64(answer:timestamp:nonce)
-function validateToken(token: string): { valid: boolean; reason?: string } {
-  try {
-    const decoded = atob(token);
-    const [answerStr, tsStr] = decoded.split(":");
-    const answer = parseInt(answerStr, 10);
-    const ts = parseInt(tsStr, 10);
-    if (isNaN(answer) || isNaN(ts)) return { valid: false, reason: "malformed_token" };
-    const age = Date.now() - ts;
-    if (age > 10 * 60 * 1000) return { valid: false, reason: "token_expired" };
-    if (age < -300000) return { valid: false, reason: "token_future" };
-    return { valid: true };
-  } catch {
-    return { valid: false, reason: "decode_error" };
-  }
-}
+import { verifyBotChallenge } from "@/lib/takeaway/security";
 
 export async function POST(req: NextRequest) {
   try {
@@ -34,13 +18,7 @@ export async function POST(req: NextRequest) {
     if (!body.captcha_token) {
       return NextResponse.json({ error: "Bot check required." }, { status: 400 });
     }
-    const { valid, reason } = validateToken(body.captcha_token);
-    if (!valid) {
-      return NextResponse.json(
-        { error: reason === "token_expired" ? "Bot check expired. Please refresh and try again." : "Invalid bot check." },
-        { status: 400 },
-      );
-    }
+    if (!verifyBotChallenge(body.captcha_token, body.captcha_answer).valid) return NextResponse.json({ error: "Invalid or expired bot check." }, { status: 400 });
 
     const { name, email, party_size, date, time } = body;
     if (!name || !email || !date || !time) {

@@ -24,7 +24,7 @@ export async function GET() {
               'id', c.id, 'group_id', c.group_id, 'name', c.name, 'price_modifier', c.price_modifier,
               'vat_rate_override', c.vat_rate_override, 'is_available', c.is_available,
               'is_default', c.is_default, 'display_order', c.display_order
-            ) ORDER BY c.display_order, c.id) FROM takeaway_option_choices c WHERE c.group_id = g.id AND c.is_available), '[]'::jsonb)
+            ) ORDER BY c.display_order, c.id) FROM takeaway_option_choices c WHERE c.group_id = g.id), '[]'::jsonb)
           ) ORDER BY link.display_order, g.display_order) FILTER (WHERE g.id IS NOT NULL), '[]'::jsonb) AS option_groups
         FROM menu_items m
         LEFT JOIN menu_item_option_groups link ON link.item_id = m.id

@@ -1,5 +1,6 @@
--- Complete Phase 2 localization of the shared standard categories without
--- replacing keys, associations, custom categories, or administrator edits.
+-- Versioned one-time localization of the Phase 1 preservation placeholders.
+-- The marker makes later setup/migrate reruns strict no-ops, so an administrator
+-- may intentionally use the same wording in two languages without overwrite.
 BEGIN;
 
 UPDATE site_settings AS settings
@@ -26,6 +27,12 @@ FROM (
   WHERE source.key = 'categories' AND jsonb_typeof(source.value) = 'array'
   GROUP BY source.key
 ) AS localized
-WHERE settings.key = localized.key AND settings.value IS DISTINCT FROM localized.value;
+WHERE settings.key = localized.key
+  AND settings.value IS DISTINCT FROM localized.value
+  AND NOT EXISTS (SELECT 1 FROM site_settings marker WHERE marker.key = 'migration_takeaway_category_localization_v1');
+
+INSERT INTO site_settings (key, value)
+VALUES ('migration_takeaway_category_localization_v1', '{"applied": true}'::jsonb)
+ON CONFLICT (key) DO NOTHING;
 
 COMMIT;

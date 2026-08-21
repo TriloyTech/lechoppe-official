@@ -27,6 +27,7 @@ function stripMigrationTransaction(sql: string) {
 
 const takeawayMigrationBody = stripMigrationTransaction(takeawayMigrationSQL);
 const takeawayLocalizationBody = stripMigrationTransaction(readFileSync(join(process.cwd(), "db/init/003_takeaway_category_localization.sql"), "utf8"));
+const takeawayReviewFixesBody = stripMigrationTransaction(readFileSync(join(process.cwd(), "db/init/004_takeaway_review_fixes.sql"), "utf8"));
 
 export async function POST(req: Request) {
   try {
@@ -48,6 +49,7 @@ export async function POST(req: Request) {
       `);
       await client.query(takeawayMigrationBody);
       await client.query(takeawayLocalizationBody);
+      await client.query(takeawayReviewFixesBody);
       await client.query("COMMIT");
     } catch (error) {
       await client.query("ROLLBACK").catch(() => undefined);

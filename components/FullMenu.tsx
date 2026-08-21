@@ -177,7 +177,7 @@ function PriceBadge({ price }: { price: number }) {
 }
 
 /* ── Single menu card ────────────────────────────────────────────────────── */
-function TakeawayLink() { const { t } = useLang(); return <Link href="/takeaway" className="inline-flex items-center gap-1 rounded-full border border-theme px-2 py-0.5 text-[0.5rem] uppercase tracking-widest text-fg">🥡 {t({ fr: "Commander", en: "Order", es: "Pedir", it: "Ordina" })}</Link>; }
+function TakeawayLink({ itemId }: { itemId: string }) { const { t } = useLang(); return <Link href={`/takeaway?item=${encodeURIComponent(itemId)}`} className="inline-flex items-center gap-1 rounded-full border border-theme px-2 py-0.5 text-[0.5rem] uppercase tracking-widest text-fg">🥡 {t({ fr: "Commander", en: "Order", es: "Pedir", it: "Ordina" })}</Link>; }
 
 function MenuCard({ item }: { item: MenuItem }) {
   const { t } = useLang();
@@ -307,7 +307,7 @@ function MenuCard({ item }: { item: MenuItem }) {
             {item.category}
           </span>
           {item.takeaway_available === true && item.available && (
-            <TakeawayLink />
+            <TakeawayLink itemId={item.id} />
           )}
         </div>
       </div>

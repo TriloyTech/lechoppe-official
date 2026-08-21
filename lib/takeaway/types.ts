@@ -4,6 +4,9 @@ export type LocalizedText = Record<Lang, string>;
 export type PaymentMethod = "cash" | "card" | "ticket_restaurant" | "other";
 export type OrderStatus = "NEW" | "ACCEPTED" | "PREPARING" | "READY" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
 export type PaymentStatus = "UNPAID" | "PAID";
+/** Technical payload safety ceiling; distinct from the business value 0 = unlimited. */
+export const TECHNICAL_MAX_ITEM_QUANTITY = 1_000;
+export const TECHNICAL_MAX_ORDER_QUANTITY = 2_000;
 
 export interface OperatingWindow { open: string; close: string }
 export type OperatingHours = Record<"monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday", OperatingWindow[]>;
@@ -83,6 +86,7 @@ export interface CreateOrderPayload {
   promo_code?: string;
   lang: Lang;
   bot_token: string;
+  bot_answer: number;
   website?: string;
   items: { item_id: string; choice_ids: string[]; special_instructions?: string; quantity: number }[];
 }

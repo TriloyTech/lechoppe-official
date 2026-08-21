@@ -294,7 +294,7 @@ function StepTime({ d, next, back, t }: { d: Draft; next: (v: Partial<Draft>) =>
 
 /* ── Step 3: Contact info + Bot gate ─────────────────────────────────────── */
 function StepContact({ d, onSubmit, back, t }: {
-  d: Draft; onSubmit: (v: Partial<Draft> & { captcha_token: string }) => void;
+  d: Draft; onSubmit: (v: Partial<Draft> & { captcha_token: string; captcha_answer: number }) => void;
   back: () => void; t: any;
 }) {
   const [form, setForm] = useState({ name: d.name, email: d.email, phone: d.phone, notes: d.notes });
@@ -310,9 +310,9 @@ function StepContact({ d, onSubmit, back, t }: {
     setShowBot(true); // ← trigger bot check
   };
 
-  const handlePass = (token: string) => {
+  const handlePass = (token: string, answer: number) => {
     setShowBot(false);
-    onSubmit({ ...form, captcha_token: token });
+    onSubmit({ ...form, captcha_token: token, captcha_answer: answer });
   };
 
   return (
@@ -405,7 +405,7 @@ export default function ReservationSection({ onClose }: { onClose: () => void })
     };
   }, []);
 
-  const next = async (vals: Partial<Draft> & { captcha_token?: string }) => {
+  const next = async (vals: Partial<Draft> & { captcha_token?: string; captcha_answer?: number }) => {
     const updated = { ...draft, ...vals };
     setDraft(updated);
 
@@ -420,6 +420,7 @@ export default function ReservationSection({ onClose }: { onClose: () => void })
             ...updated,
             party_size: updated.guests,
             captcha_token: vals.captcha_token,
+            captcha_answer: vals.captcha_answer,
             form_started: startedAt.current,
             website: "",    // honeypot (always empty from legit client)
           }),

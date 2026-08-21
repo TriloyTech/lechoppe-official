@@ -27,6 +27,21 @@ export function mergeVatBreakdowns(entries: VatBreakdown[]) {
 
 export function applyDiscountToVatBreakdown(entries: VatBreakdown[], subtotalCents: number, finalCents: number) {
   if (subtotalCents <= 0 || finalCents === subtotalCents) return entries;
-  const ratio = finalCents / subtotalCents;
-  return entries.map((entry) => ({ rate: entry.rate, base_ht: fromCents(Math.round(toCents(entry.base_ht) * ratio)), vat_amount: fromCents(Math.round(toCents(entry.vat_amount) * ratio)) }));
+  const target = Math.max(0, Math.min(subtotalCents, finalCents));
+  const weighted = entries.map((entry, index) => ({ entry, index, weight: toCents(entry.base_ht) + toCents(entry.vat_amount) }));
+  const totalWeight = weighted.reduce((sum, value) => sum + value.weight, 0);
+  if (target === 0 || totalWeight === 0) return [];
+  const allocated = weighted.map((value) => {
+    const numerator = BigInt(value.weight) * BigInt(target);
+    return { ...value, cents: Number(numerator / BigInt(totalWeight)), remainder: numerator % BigInt(totalWeight) };
+  });
+  let residual = target - allocated.reduce((sum, value) => sum + value.cents, 0);
+  for (const value of [...allocated].sort((a, b) => a.remainder === b.remainder ? a.index - b.index : a.remainder > b.remainder ? -1 : 1)) {
+    if (residual-- <= 0) break;
+    value.cents += 1;
+  }
+  return allocated.map(({ entry, cents }) => {
+    const baseCents = Math.round(cents * 10_000 / (10_000 + Math.round(entry.rate * 100)));
+    return { rate: entry.rate, base_ht: fromCents(baseCents), vat_amount: fromCents(cents - baseCents) };
+  }).filter((entry) => entry.base_ht !== 0 || entry.vat_amount !== 0);
 }

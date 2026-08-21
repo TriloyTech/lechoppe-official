@@ -1,168 +1,24 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useCallback, useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import { useLang } from "@/context/LangContext";
 
-interface Props {
-  onPass: (token: string) => void;
-  onClose: () => void;
-}
-
-function makeChallenge() {
-  const ops = [
-    () => { const a = Math.ceil(Math.random() * 9), b = Math.ceil(Math.random() * 9); return { q: `${a} + ${b}`, a: a + b }; },
-    () => { const a = Math.ceil(Math.random() * 9) + 5, b = Math.ceil(Math.random() * 5); return { q: `${a} − ${b}`, a: a - b }; },
-    () => { const a = Math.ceil(Math.random() * 5), b = Math.ceil(Math.random() * 5); return { q: `${a} × ${b}`, a: a * b }; },
-  ];
-  return ops[Math.floor(Math.random() * ops.length)]();
-}
-
-// Tiny signed token: base64(answer:timestamp:nonce)
-function makeToken(answer: number) {
-  const nonce = Math.random().toString(36).slice(2, 8);
-  const payload = `${answer}:${Date.now()}:${nonce}`;
-  return btoa(payload);
-}
+interface Props { onPass: (token: string, answer: number) => void; onClose: () => void }
+type Challenge = { question: string; challenge: string };
 
 export default function BotCheck({ onPass, onClose }: Props) {
   const { t } = useLang();
-  const [challenge]    = useState(makeChallenge);
+  const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [input, setInput] = useState("");
-  const [status, setStatus] = useState<"idle" | "error" | "pass">("idle");
-  const [shake, setShake] = useState(false);
-
-  const check = useCallback(() => {
-    const val = parseInt(input.trim(), 10);
-    if (isNaN(val) || val !== challenge.a) {
-      setStatus("error");
-      setShake(true);
-      setTimeout(() => setShake(false), 500);
-      setInput("");
-      return;
-    }
-    setStatus("pass");
-    setTimeout(() => onPass(makeToken(challenge.a)), 500);
-  }, [input, challenge.a, onPass]);
-
-  useEffect(() => {
-    const fn = (e: KeyboardEvent) => { if (e.key === "Enter") check(); };
-    window.addEventListener("keydown", fn);
-    return () => window.removeEventListener("keydown", fn);
-  }, [check]);
-
-  const bebas: React.CSSProperties = { fontFamily: "var(--font-bebas)", letterSpacing: "0.06em" };
-  const inter: React.CSSProperties = { fontFamily: "var(--font-inter)" };
-
-  return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={inter}>
-      {/* Backdrop */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-black/75 backdrop-blur-md" onClick={onClose} />
-
-      {/* Card */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.92, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.92 }}
-        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-        className="relative z-10 w-full max-w-sm bg-card-bg border border-theme rounded-2xl p-8 shadow-2xl"
-      >
-        {/* Glow */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-20 blur-[60px] opacity-20 pointer-events-none"
-          style={{ background: "#7CB895" }} />
-
-        {/* Icon */}
-        <div className="text-center mb-6">
-          <AnimatePresence mode="wait">
-            {status === "pass" ? (
-              <motion.div key="pass" initial={{ scale: 0 }} animate={{ scale: 1 }}
-                transition={{ type: "spring", stiffness: 400 }} className="text-5xl">✅</motion.div>
-            ) : (
-              <motion.div key="check" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                className="text-4xl">🤖</motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        <h2 className="text-[2rem] text-fg text-center mb-1" style={bebas}>
-          {status === "pass" ? t({ fr: "Vérifié !", en: "Verified!", es: "¡Verificado!", it: "Verificato!" }) : t({ fr: "Vérification rapide", en: "Quick verification", es: "Verificación rápida", it: "Verifica rapida" })}
-        </h2>
-        <p className="text-fg-muted text-xs text-center tracking-widest uppercase mb-8">
-          {status === "pass"
-            ? t({ fr: "Redirection en cours…", en: "Redirecting…", es: "Redirigiendo…", it: "Reindirizzamento…" })
-            : t({ fr: "Prouvez que vous n'êtes pas un robot", en: "Prove you are not a robot", es: "Demuestre que no es un robot", it: "Dimostra di non essere un robot" })}
-        </p>
-
-        {status !== "pass" && (
-          <>
-            {/* Math question */}
-            <div className="bg-surface2 border border-theme rounded-xl px-6 py-5 text-center mb-5">
-              <p className="text-fg-muted text-[0.6rem] tracking-[0.3em] uppercase mb-2">
-                {t({ fr: "Quelle est la valeur de", en: "What is the value of", es: "Cuál es el valor de", it: "Qual è il valore di" })}
-              </p>
-              <p className="text-[3rem] text-[#F3CDA0]" style={bebas}>
-                {challenge.q} = ?
-              </p>
-            </div>
-
-            {/* Answer input */}
-            <motion.div animate={shake ? { x: [-8, 8, -6, 6, -3, 3, 0] } : {}}
-              transition={{ duration: 0.4 }}>
-              <input
-                id="captcha-answer"
-                type="number"
-                inputMode="numeric"
-                autoFocus
-                value={input}
-                onChange={(e) => { setInput(e.target.value); setStatus("idle"); }}
-                placeholder={t({ fr: "Votre réponse…", en: "Your answer…", es: "Su respuesta…", it: "La tua risposta…" })}
-                className={`w-full text-center text-xl bg-surface2 border rounded-xl px-4 py-3.5 text-fg placeholder:text-fg-ghost focus:outline-none transition-all duration-200 ${
-                  status === "error"
-                    ? "border-red-500/60 focus:border-red-500/60"
-                    : "border-theme focus:border-[#7CB895]/60"
-                }`}
-                style={{ fontFamily: "var(--font-inter)" }}
-              />
-              {status === "error" && (
-                <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
-                  className="text-red-400 text-xs text-center mt-2">
-                  ⚠ {t({ fr: "Réponse incorrecte. Réessayez.", en: "Incorrect answer. Try again.", es: "Respuesta incorrecta. Inténtelo de nuevo.", it: "Risposta errata. Riprova." })}
-                </motion.p>
-              )}
-            </motion.div>
-
-            {/* Quick-pick number pad */}
-            <div className="grid grid-cols-5 gap-1.5 mt-4 mb-5">
-              {[1,2,3,4,5,6,7,8,9,0].map((n) => (
-                <button key={n}
-                  onClick={() => setInput(String(n))}
-                  className={`py-2 text-sm rounded-lg border transition-all ${
-                    input === String(n)
-                      ? "bg-mint text-charcoal border-mint font-semibold"
-                      : "border-theme bg-surface2 text-fg-muted hover:border-theme-strong hover:text-fg"
-                  }`}>
-                  {n}
-                </button>
-              ))}
-            </div>
-
-            {/* Confirm */}
-            <button
-              id="captcha-submit"
-              onClick={check}
-              disabled={!input}
-              className="w-full py-3.5 bg-[#7CB895] text-[#0A0A0A] font-semibold text-sm tracking-[0.15em] uppercase rounded-xl disabled:opacity-30 hover:bg-[#6aaa83] transition-colors"
-            >
-              {t({ fr: "Confirmer", en: "Confirm", es: "Confirmar", it: "Conferma" })} →
-            </button>
-            <button onClick={onClose}
-              className="w-full mt-2 py-2 text-xs tracking-widest uppercase text-fg-subtle hover:text-fg-muted transition-colors">
-              {t({ fr: "Annuler", en: "Cancel", es: "Cancelar", it: "Annulla" })}
-            </button>
-          </>
-        )}
-      </motion.div>
-    </div>
-  );
+  const [error, setError] = useState("");
+  const load = useCallback(async () => {
+    setError(""); setChallenge(null); setInput("");
+    const response = await fetch("/api/takeaway/bot-challenge", { cache: "no-store" }); const data = await response.json();
+    if (response.ok) setChallenge(data); else setError(t({ fr: "Vérification indisponible. Réessayez.", en: "Verification unavailable. Try again.", es: "Verificación no disponible. Inténtelo de nuevo.", it: "Verifica non disponibile. Riprova." }));
+  }, [t]);
+  useEffect(() => { void load(); (window as any).lenis?.stop(); return () => (window as any).lenis?.start(); }, [load]);
+  const submit = useCallback(() => { const answer = Number(input); if (!challenge || !Number.isInteger(answer)) { setError(t({ fr: "Saisissez une réponse valide.", en: "Enter a valid answer.", es: "Introduzca una respuesta válida.", it: "Inserisci una risposta valida." })); return; } onPass(challenge.challenge, answer); }, [challenge, input, onPass, t]);
+  useEffect(() => { const listener = (event: KeyboardEvent) => { if (event.key === "Enter") submit(); }; window.addEventListener("keydown", listener); return () => window.removeEventListener("keydown", listener); }, [submit]);
+  return <div className="fixed inset-0 z-[200] grid place-items-center bg-black/75 p-4" data-lenis-prevent="true" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><motion.section initial={{ opacity: 0, scale: .95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-sm rounded-2xl border border-theme bg-surface p-7 text-center"><button className="float-right text-fg" onClick={onClose} aria-label={t({ fr: "Fermer", en: "Close", es: "Cerrar", it: "Chiudi" })}>×</button><div className="text-4xl">🤖</div><h2 className="mt-3 text-3xl text-fg">{t({ fr: "Vérification rapide", en: "Quick verification", es: "Verificación rápida", it: "Verifica rapida" })}</h2>{challenge ? <><p className="my-6 rounded-xl border border-theme bg-bg p-5 text-4xl text-fg">{challenge.question} = ?</p><input autoFocus type="number" inputMode="numeric" value={input} onChange={(event) => { setInput(event.target.value); setError(""); }} className="w-full rounded-xl border border-theme bg-bg p-3 text-center text-xl text-fg" placeholder={t({ fr: "Votre réponse", en: "Your answer", es: "Su respuesta", it: "La tua risposta" })} /><button onClick={submit} className="mt-4 w-full rounded-xl bg-fg p-3 text-bg">{t({ fr: "Vérifier", en: "Verify", es: "Verificar", it: "Verifica" })}</button></> : <p className="my-6 text-fg/60">{t({ fr: "Chargement…", en: "Loading…", es: "Cargando…", it: "Caricamento…" })}</p>}{error ? <><p className="mt-3 text-sm text-red-400">{error}</p><button onClick={() => void load()} className="mt-2 text-sm text-fg underline">{t({ fr: "Réessayer", en: "Retry", es: "Reintentar", it: "Riprova" })}</button></> : null}</motion.section></div>;
 }
