@@ -15,7 +15,7 @@ export interface MenuItem {
   category: Exclude<MenuCategory, "tous">;
   available: boolean;
   chef_suggestion: boolean;
-  takeaway_available?: boolean;  // undefined = treat as true for non-drinks
+  takeaway_available?: boolean;  // undefined remains ineligible until explicitly classified
   image_url?: string;
   has_allergens?: boolean;
   allergens_text?: string;

@@ -20,6 +20,9 @@ cp .env.example .env
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous (public) API key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server-side only) |
 | `ADMIN_PASSPHRASE` | Passphrase for the admin section |
+| `ADMIN_SESSION_SECRET` | Server-only HMAC secret for admin sessions |
+| `BOT_CHECK_SECRET` | Required production HMAC secret for anti-bot challenges |
+| `TRUST_PROXY_HEADERS` | Set to `true` only when a trusted proxy overwrites forwarding headers |
 
 ## Development
 

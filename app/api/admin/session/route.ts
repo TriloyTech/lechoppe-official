@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const COOKIE_NAME = "lechoppe_admin_auth";
+import { isAdminRequest } from "@/lib/admin/auth";
 
 export async function GET(req: NextRequest) {
-  return NextResponse.json({ authenticated: req.cookies.get(COOKIE_NAME)?.value === "1" });
+  return NextResponse.json({ authenticated: isAdminRequest(req) });
 }

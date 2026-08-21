@@ -9,13 +9,17 @@ export interface Category {
   emoji: string;
   fr: string;
   en: string;
+  es: string;
+  it: string;
+  is_active: boolean;
+  display_order: number;
 }
 
 export const DEFAULT_CATEGORIES: Category[] = [
-  { key: "burger",  emoji: "🍔", fr: "Burgers & Plats",         en: "Burgers & Mains" },
-  { key: "side",    emoji: "🥗", fr: "Entrées & Accompagnements", en: "Starters & Sides" },
-  { key: "dessert", emoji: "🍮", fr: "Desserts",                 en: "Desserts" },
-  { key: "drink",   emoji: "🥂", fr: "Boissons",                en: "Drinks" },
+  { key: "burger", emoji: "🍔", fr: "Burgers & Plats", en: "Burgers & Mains", es: "Hamburguesas y platos", it: "Burger e piatti", is_active: true, display_order: 0 },
+  { key: "side", emoji: "🥗", fr: "Entrées & Accompagnements", en: "Starters & Sides", es: "Entrantes y guarniciones", it: "Antipasti e contorni", is_active: true, display_order: 1 },
+  { key: "dessert", emoji: "🍮", fr: "Desserts", en: "Desserts", es: "Postres", it: "Dolci", is_active: true, display_order: 2 },
+  { key: "drink", emoji: "🥂", fr: "Boissons", en: "Drinks", es: "Bebidas", it: "Bevande", is_active: true, display_order: 3 },
 ];
 
 export function useCategories() {
@@ -31,7 +35,16 @@ export function useCategories() {
         .eq("key", "categories")
         .maybeSingle();
       if (data?.value && Array.isArray(data.value) && data.value.length > 0) {
-        setCategories(data.value as Category[]);
+        setCategories((data.value as Partial<Category>[]).map((category, index) => ({
+          key: category.key ?? `category_${index}`,
+          emoji: category.emoji ?? "🍽️",
+          fr: category.fr ?? "",
+          en: category.en ?? category.fr ?? "",
+          es: category.es ?? category.en ?? category.fr ?? "",
+          it: category.it ?? category.en ?? category.fr ?? "",
+          is_active: category.is_active ?? true,
+          display_order: category.display_order ?? index,
+        })).sort((a, b) => a.display_order - b.display_order));
       }
     } catch {
       // silently fall back to defaults
