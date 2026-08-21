@@ -1008,12 +1008,12 @@ function OffersPanel({ db, t }: { db: any; t: any }) {
           <table className="w-full text-left text-sm">
             <thead className="bg-white/5 border-b border-white/10 text-white/40 uppercase tracking-widest text-[0.6rem]">
               <tr>
-                <th className="px-6 py-4">Code</th>
-                <th className="px-6 py-4">Remise</th>
-                <th className="px-6 py-4">Expiration</th>
+                <th className="px-6 py-4">{t({ fr: "Code", en: "Code", es: "Código", it: "Codice" })}</th>
+                <th className="px-6 py-4">{t({ fr: "Remise", en: "Discount", es: "Descuento", it: "Sconto" })}</th>
+                <th className="px-6 py-4">{t({ fr: "Expiration", en: "Expiration", es: "Caducidad", it: "Scadenza" })}</th>
                 <th className="px-6 py-4">{t({ fr: "Statut", en: "Status", es: "Estado", it: "Stato" })}</th>
                 <th className="px-6 py-4">{t({ fr: "À emporter", en: "Takeaway", es: "Para llevar", it: "Asporto" })}</th>
-                <th className="px-6 py-4 text-right">Actions</th>
+                <th className="px-6 py-4 text-right">{t({ fr: "Actions", en: "Actions", es: "Acciones", it: "Azioni" })}</th>
               </tr>
             </thead>
           <tbody className="divide-y divide-white/10">
@@ -1034,7 +1034,7 @@ function OffersPanel({ db, t }: { db: any; t: any }) {
                       onClick={() => toggleActive(o.id, o.active)}
                       className={`px-3 py-1 rounded text-xs transition-colors ${o.active ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' : 'bg-white/10 text-white/40 hover:bg-white/20'}`}
                     >
-                      {o.active ? t({ fr: "Actif", en: "Active", es: "Activo", it: "Attivo" }) : t("Inactif", "Inactive")}
+                      {o.active ? t({ fr: "Actif", en: "Active", es: "Activo", it: "Attivo" }) : t({ fr: "Inactif", en: "Inactive", es: "Inactivo", it: "Inattivo" })}
                     </button>
                   </td>
                   <td className="px-6 py-4">
@@ -1070,7 +1070,7 @@ function OffersPanel({ db, t }: { db: any; t: any }) {
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-[0.6rem] text-white/40 uppercase tracking-widest mb-1">Code *</label>
+                  <label className="block text-[0.6rem] text-white/40 uppercase tracking-widest mb-1">{t({ fr: "Code *", en: "Code *", es: "Código *", it: "Codice *" })}</label>
                   <input type="text" value={form.code} onChange={e => setForm({ ...form, code: e.target.value.toUpperCase() })} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:border-[#7CB895]/50 outline-none" placeholder="ex: BIENVENUE15" />
                 </div>
                 <div>
@@ -1134,7 +1134,7 @@ function OffersPanel({ db, t }: { db: any; t: any }) {
                   {t({ fr: "Annuler", en: "Cancel", es: "Cancelar", it: "Annulla" })}
                 </button>
                 <button onClick={handleSave} disabled={saving || !form.code || (form.expiryType !== 'infinite' && !form.valid_until)} className={`flex-1 py-2 text-xs uppercase tracking-widest font-semibold rounded-lg transition-colors ${saving || !form.code || (form.expiryType !== 'infinite' && !form.valid_until) ? 'bg-white/10 text-white/30 cursor-not-allowed' : 'bg-[#7CB895] text-black hover:bg-[#6aaa83]'}`}>
-                  {saving ? "..." : (editOffer ? t({ fr: "Mettre à jour", en: "Update", es: "Actualizar", it: "Aggiorna" }) : t("Créer", "Create"))}
+                  {saving ? "..." : (editOffer ? t({ fr: "Mettre à jour", en: "Update", es: "Actualizar", it: "Aggiorna" }) : t({ fr: "Créer", en: "Create", es: "Crear", it: "Crea" }))}
                 </button>
               </div>
             </motion.div>

@@ -1,6 +1,6 @@
 import type { OperatingHours, TakeawaySettings } from "./types";
 
-const DAY_BY_SHORT: Record<string, keyof OperatingHours> = { Sun: "sunday", Mon: "monday", Tue: "tuesday", Wed: "wednesday", Thu: "thursday", Fri: "friday", Sat: "saturday" };
+const DAY_BY_INDEX: (keyof OperatingHours)[] = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 const PARIS = "Europe/Paris";
 export const MAX_GENERATED_SLOTS = 2_000;
 
@@ -31,6 +31,19 @@ export function parisLocalDateTimeToUtc(value: string) {
 
 export function parisDateTime(date: string, time: string) { return parisLocalDateTimeToUtc(`${date}T${time}`); }
 
+/** Adds calendar days to YYYY-MM-DD components without treating a business day as 24 elapsed hours. */
+function addCalendarDays(value: string, days: number) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) throw new Error("Invalid calendar date");
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + days));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+}
+
+function weekdayForCalendarDate(value: string): keyof OperatingHours {
+  const [year, month, day] = value.split("-").map(Number);
+  return DAY_BY_INDEX[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
+}
+
 export function estimateConfiguredSlotCount(settings: Pick<TakeawaySettings, "operating_hours" | "slot_interval_minutes" | "advance_order_max_days" | "closing_cutoff_minutes">) {
   const dailyCounts = Object.values(settings.operating_hours).map((windows) => windows.reduce((count, window) => {
     const open = Number(window.open.slice(0, 2)) * 60 + Number(window.open.slice(3));
@@ -48,8 +61,11 @@ export function estimateConfiguredSlotCount(settings: Pick<TakeawaySettings, "op
 
 export function generateSlots(settings: TakeawaySettings, now = new Date()) {
   const byTimestamp = new Map<number, Date>();
+  const currentParis = parisParts(now);
+  const currentParisDate = `${currentParis.year}-${currentParis.month}-${currentParis.day}`;
   for (let day = 0; day <= settings.advance_order_max_days; day++) {
-    const base = new Date(now.getTime() + day * 86_400_000); const parts = parisParts(base); const date = `${parts.year}-${parts.month}-${parts.day}`; const weekday = DAY_BY_SHORT[parts.weekday];
+    const date = addCalendarDays(currentParisDate, day);
+    const weekday = weekdayForCalendarDate(date);
     for (const window of settings.operating_hours[weekday]) {
       const open = Number(window.open.slice(0, 2)) * 60 + Number(window.open.slice(3)); const close = Number(window.close.slice(0, 2)) * 60 + Number(window.close.slice(3)) - settings.closing_cutoff_minutes;
       for (let minute = open; minute <= close; minute += settings.slot_interval_minutes) {

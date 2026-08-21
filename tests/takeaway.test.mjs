@@ -18,6 +18,8 @@ import { appendCreated, removeById, removeGroupChoices } from "../lib/takeaway/o
 
 const solve = (question) => { const [a, op, b] = question.split(" "); return op === "+" ? Number(a) + Number(b) : op === "−" ? Number(a) - Number(b) : Number(a) * Number(b); };
 const settings = { takeaway_enabled: true, pause_mode: false, operating_hours: { monday: [{ open: "12:00", close: "13:00" }], tuesday: [], wednesday: [], thursday: [], friday: [], saturday: [], sunday: [] }, closing_cutoff_minutes: 0, prep_lead_time_minutes: 20, slot_interval_minutes: 15, advance_order_max_days: 0, max_orders_per_slot: 1, min_order_amount: 0, max_order_amount: 0, audio_alert_enabled: true, accepted_payment_methods: ["cash"] };
+const multiDaySettings = (operating_hours) => ({ ...settings, operating_hours, prep_lead_time_minutes: 0, advance_order_max_days: 2 });
+const emptyWeek = () => ({ monday: [], tuesday: [], wednesday: [], thursday: [], friday: [], saturday: [], sunday: [] });
 
 test("settings sanitize legacy fields and support GET/PATCH round trips", () => {
   const legacy = { ...settings, takeaway_promo_eligible: false }; const clean = sanitizeTakeawaySettings(legacy); assert.equal("takeaway_promo_eligible" in clean, false); assert.deepEqual(mergeAndValidateTakeawaySettings(legacy, clean).settings, clean);
@@ -45,7 +47,10 @@ test("shared menu categories localize, order, hide inactive sections, and fall b
   ];
   assert.deepEqual(activeCategories(categories).map((category) => category.key), ["early", "late"]);
   assert.deepEqual(visibleMenuItems([{ category: "hidden" }, { category: "early" }, { category: "legacy" }], categories).map((item) => item.category), ["early", "legacy"]);
+  assert.equal(categoryLabel(categories[2], "fr", "early"), "Tôt");
+  assert.equal(categoryLabel(categories[2], "en", "early"), "Early");
   assert.equal(categoryLabel(categories[2], "es", "early"), "Temprano");
+  assert.equal(categoryLabel(categories[2], "it", "early"), "Presto");
   assert.equal(categoryLabel({ key: "legacy", en: "Legacy", fr: "Héritage" }, "it", "legacy"), "Legacy");
   assert.equal(categoryLabel({ key: "fallback" }, "it", "fallback"), "fallback");
 });
@@ -92,6 +97,29 @@ test("tracking requires a cryptographic token rather than an order reference", (
 test("dish deep links select an exact item and invalid IDs degrade gracefully", () => { const items = [{ id: "dish-a" }, { id: "dish-b" }]; assert.equal(findDeepLinkedItem(items, "?item=dish-b")?.id, "dish-b"); assert.equal(findDeepLinkedItem(items, "?item=missing"), null); assert.equal(findDeepLinkedItem(items, ""), null); });
 test("card and row takeaway CTAs are limited to eligible available dishes", () => { assert.equal(isTakeawayItemActionable({ available: true, takeaway_available: true }), true); assert.equal(isTakeawayItemActionable({ available: false, takeaway_available: true }), false); assert.equal(isTakeawayItemActionable({ available: true, takeaway_available: false }), false); });
 test("admin sessions are signed and reject the legacy forgeable cookie", () => { const token = createAdminSessionToken(); const parts = token.split("."); const tampered = `${parts[0]}.${parts[1]}.${parts[2][0] === "0" ? "1" : "0"}${parts[2].slice(1)}`; assert.equal(verifyAdminSessionToken(token), true); assert.equal(verifyAdminSessionToken("1"), false); assert.equal(verifyAdminSessionToken(tampered), false); });
+test("slot generation advances Paris calendar dates across the spring DST transition", () => {
+  const operatingHours = emptyWeek(); operatingHours.saturday = [{ open: "12:00", close: "12:00" }]; operatingHours.sunday = [{ open: "13:00", close: "13:00" }]; operatingHours.monday = [{ open: "14:00", close: "14:00" }];
+  const slots = generateSlots(multiDaySettings(operatingHours), new Date("2026-03-28T08:00:00Z"));
+  assert.deepEqual(slots.map(formatParisDateTimeLocal), ["2026-03-28T12:00", "2026-03-29T13:00", "2026-03-30T14:00"]);
+  assert.deepEqual(slots.map((slot) => slot.toISOString()), ["2026-03-28T11:00:00.000Z", "2026-03-29T11:00:00.000Z", "2026-03-30T12:00:00.000Z"]);
+  assert.equal(new Set(slots.map((slot) => slot.getTime())).size, 3);
+  assert.deepEqual(slots.map((slot) => slot.getTime()), [...slots].sort((left, right) => left.getTime() - right.getTime()).map((slot) => slot.getTime()));
+});
+test("slot generation advances Paris calendar dates across the autumn DST transition", () => {
+  const operatingHours = emptyWeek(); operatingHours.saturday = [{ open: "12:00", close: "12:00" }]; operatingHours.sunday = [{ open: "13:00", close: "13:00" }]; operatingHours.monday = [{ open: "14:00", close: "14:00" }];
+  const slots = generateSlots(multiDaySettings(operatingHours), new Date("2026-10-24T08:00:00Z"));
+  assert.deepEqual(slots.map(formatParisDateTimeLocal), ["2026-10-24T12:00", "2026-10-25T13:00", "2026-10-26T14:00"]);
+  assert.deepEqual(slots.map((slot) => slot.toISOString()), ["2026-10-24T10:00:00.000Z", "2026-10-25T12:00:00.000Z", "2026-10-26T13:00:00.000Z"]);
+  assert.equal(new Set(slots.map((slot) => slot.getTime())).size, 3);
+  assert.deepEqual(slots.map((slot) => slot.getTime()), [...slots].sort((left, right) => left.getTime() - right.getTime()).map((slot) => slot.getTime()));
+});
+test("slot generation advances ordinary Paris calendar dates exactly once", () => {
+  const operatingHours = emptyWeek(); operatingHours.monday = [{ open: "12:00", close: "12:00" }]; operatingHours.tuesday = [{ open: "13:00", close: "13:00" }]; operatingHours.wednesday = [{ open: "14:00", close: "14:00" }];
+  const slots = generateSlots(multiDaySettings(operatingHours), new Date("2026-02-02T08:00:00Z"));
+  assert.deepEqual(slots.map(formatParisDateTimeLocal), ["2026-02-02T12:00", "2026-02-03T13:00", "2026-02-04T14:00"]);
+  assert.deepEqual(slots.map((slot) => slot.toISOString()), ["2026-02-02T11:00:00.000Z", "2026-02-03T12:00:00.000Z", "2026-02-04T13:00:00.000Z"]);
+  assert.equal(new Set(slots.map((slot) => slot.getTime())).size, 3);
+});
 test("slots respect Paris time, deduplicate, and classify the earliest available slot as ASAP", () => { const now = new Date("2026-08-24T09:00:00Z"); const slots = generateSlots(settings, now); assert.equal(slots.length, 5); assert.equal(new Set(slots.map((slot) => slot.toISOString())).size, slots.length); const adjacent = generateSlots({ ...settings, prep_lead_time_minutes: 0, operating_hours: { ...settings.operating_hours, monday: [{ open: "12:00", close: "13:00" }, { open: "13:00", close: "14:00" }] } }, now); assert.equal(adjacent.length, 9); assert.equal(new Set(adjacent.map((slot) => slot.toISOString())).size, adjacent.length); assert.equal(isValidPickupTime(slots[0], settings, now), true); assert.equal(isValidPickupTime(new Date("2026-08-24T10:07:00Z"), settings, now), false); assert.equal(classifyPickupSlots(slots, new Map(), 1)[0].type, "asap"); const firstFull = classifyPickupSlots(slots, new Map([[slots[0].toISOString(), 1]]), 1); assert.equal(firstFull[0].available, false); assert.equal(firstFull[1].type, "asap"); assert.equal(classifyPickupSlots(slots, new Map(slots.map((slot) => [slot.toISOString(), 1])), 1).some((slot) => slot.type === "asap"), false); });
 test("Paris admin pickup edits are timezone-independent and omit unchanged fields", () => { const original = { pickupTime: "2026-07-01T10:30:00.000Z", staffNotes: "Keep warm" }; const draft = createAdminOrderEditDraft(original); assert.deepEqual(draft, { pickup: "2026-07-01T12:30", notes: "Keep warm" }); assert.deepEqual(buildAdminOrderEditPatch(original, draft), {}); assert.deepEqual(buildAdminOrderEditPatch(original, { ...draft, notes: "New note" }), { staff_notes: "New note" }); assert.deepEqual(buildAdminOrderEditPatch(original, { ...draft, pickup: "2026-07-01T13:30" }), { pickup_time: "2026-07-01T11:30:00.000Z" }); assert.equal(formatParisDateTimeLocal(parisLocalDateTimeToUtc("2026-10-25T02:30")), "2026-10-25T02:30"); assert.throws(() => parisLocalDateTimeToUtc("2026-03-29T02:30"), /does not exist/); });
 test("confirmation email renders configured onsite payment methods in every language", () => { const expected = { fr: "Espèces, Carte", en: "Cash, Card", es: "Efectivo, Tarjeta", it: "Contanti, Carta" }; for (const lang of ["fr", "en", "es", "it"]) { const subset = renderOrderConfirmation({ lang, reference: "ECH-TEST", pickup: "12:30", total: 12.5, trackingUrl: "https://example.test/token", acceptedPaymentMethods: ["cash", "card"], items: [{ quantity: 1, name: "<Test>" }] }); assert.match(subset.text, /12\.50/); assert.match(subset.html, /&lt;Test&gt;/); assert.ok(subset.text.includes(expected[lang])); assert.doesNotMatch(subset.text, /Swile/); const all = renderOrderConfirmation({ lang, reference: "ECH-TEST", pickup: "12:30", total: 12.5, trackingUrl: "https://example.test/token", acceptedPaymentMethods: ["cash", "card", "ticket_restaurant", "other"], items: [] }); assert.match(all.text, /Swile/); } });

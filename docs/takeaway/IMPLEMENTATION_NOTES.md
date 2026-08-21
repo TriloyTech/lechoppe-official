@@ -19,3 +19,5 @@ Customer emails are trimmed/lowercased and accepted French phone punctuation (`s
 ## Slot generation safety
 
 Operating windows must not overlap. Generated slots are chronologically deduplicated and settings that could produce more than 2,000 slots are rejected. This is a technical response-size/processing ceiling, not a change to the configured interval or advance-order business rules.
+
+Future pickup business dates are advanced as explicit Europe/Paris calendar dates. They are not derived by adding elapsed 24-hour UTC durations, so weekday selection and local pickup times remain stable across daylight-saving transitions.

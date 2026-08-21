@@ -24,9 +24,11 @@ try {
   await admin.query(`CREATE SCHEMA ${schema}`);
   database = new pg.Pool({ connectionString: testUrl.toString() });
   for (const file of ["001_init.sql", "002_takeaway.sql", "003_takeaway_category_localization.sql", "004_takeaway_review_fixes.sql"]) await database.query(await readFile(new URL(`../db/init/${file}`, import.meta.url), "utf8"));
-  await database.query(await readFile(new URL("../db/init/003_takeaway_category_localization.sql", import.meta.url), "utf8"));
-  await database.query(await readFile(new URL("../db/init/004_takeaway_review_fixes.sql", import.meta.url), "utf8"));
-  const storedSettings = await database.query("SELECT value FROM site_settings WHERE key='takeaway_settings'"); assert.equal(storedSettings.rows[0].value.takeaway_enabled, false); assert.equal("takeaway_promo_eligible" in storedSettings.rows[0].value, false);
+  await database.query("UPDATE site_settings SET value=jsonb_set(value, '{takeaway_enabled}', 'true'::jsonb, true) WHERE key='takeaway_settings'");
+  for (const file of ["002_takeaway.sql", "003_takeaway_category_localization.sql", "004_takeaway_review_fixes.sql"]) await database.query(await readFile(new URL(`../db/init/${file}`, import.meta.url), "utf8"));
+  const rerunSettings = await database.query("SELECT value FROM site_settings WHERE key='takeaway_settings'"); assert.equal(rerunSettings.rows[0].value.takeaway_enabled, true); assert.equal("takeaway_promo_eligible" in rerunSettings.rows[0].value, false);
+  await database.query("UPDATE site_settings SET value=jsonb_set(value, '{takeaway_enabled}', 'false'::jsonb, true) WHERE key='takeaway_settings'");
+  const storedSettings = await database.query("SELECT value FROM site_settings WHERE key='takeaway_settings'"); assert.equal(storedSettings.rows[0].value.takeaway_enabled, false);
 
   const everyDay = Object.fromEntries(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].map((day) => [day, [{ open: "00:00", close: "23:59" }]]));
   const settings = { ...storedSettings.rows[0].value, takeaway_enabled: true, operating_hours: everyDay, closing_cutoff_minutes: 0, prep_lead_time_minutes: 0, slot_interval_minutes: 30, advance_order_max_days: 0, max_orders_per_slot: 1, accepted_payment_methods: ["cash", "card"] };

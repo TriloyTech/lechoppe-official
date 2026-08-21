@@ -181,7 +181,7 @@ function PriceBadge({ price }: { price: number }) {
 /* ── Single menu card ────────────────────────────────────────────────────── */
 function TakeawayLink({ itemId }: { itemId: string }) { const { t } = useLang(); return <Link href={`/takeaway?item=${encodeURIComponent(itemId)}`} className="inline-flex items-center gap-1 rounded-full border border-theme px-2 py-0.5 text-[0.5rem] uppercase tracking-widest text-fg">🥡 {t({ fr: "Commander", en: "Order", es: "Pedir", it: "Ordina" })}</Link>; }
 
-function MenuCard({ item }: { item: MenuItem }) {
+function MenuCard({ item, category }: { item: MenuItem; category: string }) {
   const { t } = useLang();
   const sold     = !item.available;
   const imageUrl = resolveImageUrl(item.image_url);
@@ -306,7 +306,7 @@ function MenuCard({ item }: { item: MenuItem }) {
             className="text-[0.55rem] tracking-[0.3em] uppercase text-mint/60"
             style={{ fontFamily: "var(--font-inter)" }}
           >
-            {item.category}
+            {category}
           </span>
           {isTakeawayItemActionable(item) && (
             <TakeawayLink itemId={item.id} />
@@ -464,7 +464,7 @@ export default function FullMenu() {
             exit="exit"
             className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-4"
           >
-            {withImg.map((item) => <MenuCard key={item.id} item={item} />)}
+            {withImg.map((item) => <MenuCard key={item.id} item={item} category={categoryLabel(catDef, lang, item.category)} />)}
           </motion.div>
         )}
 
