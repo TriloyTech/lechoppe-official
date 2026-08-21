@@ -22,6 +22,11 @@ export const ALLOWED_TABLES = [
   "reservations",
   "offers",
   "site_settings",
+  "takeaway_option_groups",
+  "takeaway_option_choices",
+  "menu_item_option_groups",
+  "takeaway_orders",
+  "takeaway_order_events",
 ] as const;
 
 export type AllowedTable = (typeof ALLOWED_TABLES)[number];

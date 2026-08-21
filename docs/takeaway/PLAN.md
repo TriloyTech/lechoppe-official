@@ -13,11 +13,11 @@ This plan defines the comprehensive engineering architecture for implementing th
 ### 1.1 Core Architecture Principles
 1. **Self-Hosted PostgreSQL with Explicit Concurrency Control**: Persistence is backed by PostgreSQL via the Node.js `pg` pool (`lib/postgres/db.ts`). Slot capacity checks are strictly serialized using transaction-scoped PostgreSQL advisory locks (`pg_advisory_xact_lock`), preventing overscheduling race conditions without table-level bottlenecks.
 2. **Authoritative Server-Side Pricing & Negative Modifier Handling**: Option choices natively support positive, zero, and negative price modifiers (e.g. `+1.50 €`, `0.00 €`, `-2.00 €`). The server authoritatively reconstructs line items from database IDs, applying a mathematical floor at the **final calculated unit item price** ($\ge 0.00 €$) rather than artificially constraining individual modifier values.
-3. **Data-Driven VAT Architecture**: French VAT is not hardcoded to fixed product heuristics; each menu item has a configurable `vat_rate` (e.g. 5.50%, 10.00%, 20.00%), and option choices inherit or optionally override this rate. Calculations use the active configured rate, and frozen snapshots preserve exact tax breakdown amounts permanently.
+3. **Data-Driven VAT Architecture**: French VAT is not hardcoded to fixed product heuristics; each menu item has a nullable, administrator-configured `vat_rate` (e.g. 5.50%, 10.00%, 20.00%), and option choices inherit or optionally override this rate. Existing and new/unclassified products remain `NULL` by default, and the database prevents enabling Takeaway eligibility until a valid rate is configured. Calculations use the active configured rate, and frozen snapshots preserve exact tax breakdown amounts permanently.
 4. **Separation of Communication Reference and Tracking Security**:
    - **`order_reference`** (e.g. `#ECH-84K9`): Collision-safe, human-readable code backed by a PostgreSQL `UNIQUE` constraint for customer communication and counter pickup.
    - **`tracking_token`**: High-entropy cryptographically random string (32-byte URL-safe string). The server stores a SHA-256 hash (`tracking_token_hash`), ensuring order URLs (`/takeaway/order/[token]`) cannot be enumerated, guessed, or leaked from database dumps.
-5. **Dedicated Customer & Admin Domain Endpoints**: The generic `/api/db/[table]` route is strictly bypassed for all Takeaway customer experiences and transactional mutations. A customer-safe endpoint `GET /api/takeaway/config` provides sanitized configuration, while dedicated route handlers manage checkout, tracking, cancellation, status transitions, and payments with strict validation.
+5. **Dedicated Customer & Admin Domain Endpoints**: The generic `/api/db/[table]` route is strictly bypassed for all Takeaway customer experiences and transactional mutations. In Phase 3, a customer-safe endpoint `GET /api/takeaway/config` will provide sanitized configuration, while dedicated route handlers manage checkout, tracking, cancellation, status transitions, and payments with strict validation in their assigned later phases.
 6. **Strict Separation of Lifecycle and Settlement**:
    - **Order Lifecycle**: `NEW` $\rightarrow$ `ACCEPTED` $\rightarrow$ `PREPARING` $\rightarrow$ `READY` $\rightarrow$ `COMPLETED` / `CANCELLED` / `NO_SHOW`.
    - **Payment Settlement**: `UNPAID` $\leftrightarrow$ `PAID` with onsite method recording (`cash`, `card`, `ticket_restaurant`, `other`).
@@ -30,7 +30,7 @@ This plan defines the comprehensive engineering architecture for implementing th
 
 | Domain | Current Implementation | Takeaway Integration Strategy |
 | :--- | :--- | :--- |
-| **Menu & Category Model** | `menu_items` table with `id`, `name`, `description`, `price`, `category`, `available`, `chef_suggestion`, `takeaway_available`. Categories stored in `site_settings.categories` JSONB array (`key`, `emoji`, `fr`, `en`). | **Reuse & Extend Existing Category Model**: Extend `site_settings.categories` with 4-language support (`fr`, `en`, `es`, `it`), `is_active`, and `display_order`. Dishes are categorized by matching `menu_items.category = category.key` and sorted by `menu_items.display_order`. Add normalized option group relations (`takeaway_option_groups`, `takeaway_option_choices`, `menu_item_option_groups`). |
+| **Menu & Category Model** | `menu_items` table with `id`, `name`, `description`, `price`, `category`, `available`, `chef_suggestion`, `takeaway_available`. Categories stored in `site_settings.categories` JSONB array (`key`, `emoji`, `fr`, `en`). | **Reuse & Extend Existing Category Model**: Extend `site_settings.categories` with 4-language support (`fr`, `en`, `es`, `it`), `is_active`, and `display_order`. Dishes are categorized by matching `menu_items.category = category.key` and sorted by `menu_items.display_order`. Existing and new/unclassified products remain `takeaway_available = false`; administrators assign VAT and explicitly opt products in. Add normalized option group relations (`takeaway_option_groups`, `takeaway_option_choices`, `menu_item_option_groups`). |
 | **Promotions & Offers** | `offers` table with `id`, `code`, `discount`, `description`, `valid_until`, `active`. | **Explicit Takeaway Eligibility**: Add `takeaway_eligible boolean NOT NULL DEFAULT false` to `offers`. The order creation endpoint authoritatively checks `active = true`, `takeaway_eligible = true`, and `valid_until >= CURRENT_DATE`, recalculating discounts server-side. |
 | **Database Access Patterns** | Client: `createClient()` query builder over `/api/db/[table]`. Server: Direct `pool.query()` with parameterization (`$1`, `$2`). | **Strict Domain Isolation**: Takeaway customer endpoints (`/api/takeaway/*`) and admin mutation endpoints (`/api/admin/takeaway/*`) use dedicated route handlers. Generic `/api/db/[table]` is strictly prohibited from handling orders or transactional mutations. |
 | **Admin Architecture** | Monolithic `app/admin/page.tsx` tabbed dashboard. Session verified via `lechoppe_admin_auth` cookie. | Add **"🥡 Commandes / Takeaway"** tab with modular sub-panels (`TakeawayOrdersPanel`, `TakeawayMenuManager`, `TakeawayOptionGroupsManager`, `TakeawaySettingsPanel`). Add user gesture button to unlock Web Audio context for chime alerts. |
@@ -166,6 +166,7 @@ erDiagram
   }
   ```
 - **Item Categorization & Ordering**: Dishes in `menu_items` specify `category text NOT NULL` matching `category.key`. Within each category group, dishes are sorted by `menu_items.display_order ASC`, followed by `menu_items.name ASC`.
+- **Phase 1 Localization Preservation**: The migration preserves existing category labels and uses preservation-safe placeholders for missing `es`/`it` values. Proper Spanish and Italian category translations are completed in Phase 2 before an administrator activates Takeaway.
 
 ### 3.2 Promo Eligibility Model
 - **`offers` Table Extension**: Added column `takeaway_eligible boolean NOT NULL DEFAULT false`.
@@ -190,11 +191,69 @@ erDiagram
 -- Migration 002: Takeaway Ordering System
 -- Target: lechoppe-official PostgreSQL Database
 
--- 1. Extend menu_items with Takeaway specific fields
-ALTER TABLE menu_items 
-  ADD COLUMN IF NOT EXISTS vat_rate numeric(4,2) NOT NULL DEFAULT 5.50,
+-- 1. Extend menu_items with Takeaway-specific fields. VAT remains
+-- unclassified and products remain ineligible until explicitly configured.
+ALTER TABLE menu_items
+  ADD COLUMN IF NOT EXISTS vat_rate numeric(4,2) DEFAULT NULL,
   ADD COLUMN IF NOT EXISTS max_quantity_per_order int NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS display_order int NOT NULL DEFAULT 0;
+
+ALTER TABLE menu_items
+  ALTER COLUMN vat_rate DROP NOT NULL,
+  ALTER COLUMN vat_rate DROP DEFAULT,
+  ALTER COLUMN takeaway_available SET DEFAULT false;
+
+-- On first application of the corrected Phase 1 migration, a named
+-- constraint marker guards the one-time normalization of existing products to
+-- takeaway_available = false and vat_rate = NULL. Exact reruns preserve later
+-- administrator configuration.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'chk_menu_items_takeaway_requires_vat'
+      AND conrelid = 'menu_items'::regclass
+  ) THEN
+    UPDATE menu_items
+    SET takeaway_available = false,
+        vat_rate = NULL;
+
+    UPDATE site_settings
+    SET value = jsonb_set(value, '{takeaway_enabled}', 'false'::jsonb, true),
+        updated_at = now()
+    WHERE key = 'takeaway_settings';
+  END IF;
+END $$;
+
+UPDATE menu_items
+SET takeaway_available = false
+WHERE takeaway_available IS NULL;
+
+ALTER TABLE menu_items
+  ALTER COLUMN takeaway_available SET NOT NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'chk_menu_items_vat_rate'
+      AND conrelid = 'menu_items'::regclass
+  ) THEN
+    ALTER TABLE menu_items
+      ADD CONSTRAINT chk_menu_items_vat_rate
+      CHECK (vat_rate IS NULL OR (vat_rate >= 0 AND vat_rate < 100));
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'chk_menu_items_takeaway_requires_vat'
+      AND conrelid = 'menu_items'::regclass
+  ) THEN
+    ALTER TABLE menu_items
+      ADD CONSTRAINT chk_menu_items_takeaway_requires_vat
+      CHECK (NOT takeaway_available OR vat_rate IS NOT NULL);
+  END IF;
+END $$;
 
 -- 2. Extend offers table with Takeaway eligibility flag
 ALTER TABLE offers
@@ -268,37 +327,101 @@ CREATE TABLE IF NOT EXISTS takeaway_orders (
   completed_at timestamptz DEFAULT NULL,
   cancelled_at timestamptz DEFAULT NULL,
   no_show_at timestamptz DEFAULT NULL,
-  paid_at timestamptz DEFAULT NULL
+  paid_at timestamptz DEFAULT NULL,
+  CONSTRAINT chk_takeaway_orders_tracking_token_hash CHECK (
+    tracking_token_hash ~ '^[0-9a-f]{64}$'
+  ),
+  CONSTRAINT chk_takeaway_orders_payment_consistency CHECK (
+    (payment_status = 'UNPAID' AND payment_method IS NULL AND paid_at IS NULL)
+    OR
+    (payment_status = 'PAID' AND payment_method IS NOT NULL AND paid_at IS NOT NULL)
+  ),
+  CONSTRAINT chk_takeaway_orders_terminal_timestamps CHECK (
+    (status <> 'CANCELLED' OR cancelled_at IS NOT NULL)
+    AND (status <> 'COMPLETED' OR completed_at IS NOT NULL)
+  ),
+  CONSTRAINT chk_takeaway_orders_other_cancellation_note CHECK (
+    cancellation_reason_code IS DISTINCT FROM 'other'
+    OR NULLIF(trim(cancellation_note), '') IS NOT NULL
+  )
 );
 
 -- 7. Order Audit Events Table
 CREATE TABLE IF NOT EXISTS takeaway_order_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  order_id uuid NOT NULL REFERENCES takeaway_orders(id) ON DELETE CASCADE,
+  order_id uuid NOT NULL,
   event_type text NOT NULL,
   previous_status text DEFAULT NULL,
   new_status text NOT NULL,
-  performed_by text NOT NULL, -- 'customer' | 'staff' | 'system'
+  performed_by text NOT NULL,
   reason_code text DEFAULT NULL,
   note text DEFAULT NULL,
-  created_at timestamptz DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT fk_takeaway_order_events_order
+    FOREIGN KEY (order_id) REFERENCES takeaway_orders(id) ON DELETE RESTRICT
 );
 
--- 8. Indexes for High-Concurrency Performance & Rapid Lookup
--- Note: order_reference and tracking_token_hash are already indexed by their
--- named UNIQUE constraints (uq_takeaway_orders_order_reference, uq_takeaway_orders_tracking_token_hash).
+-- 8. Immutable Snapshot, Append-Only Audit, and Timestamp Maintenance
+CREATE OR REPLACE FUNCTION prevent_takeaway_order_snapshot_update()
+RETURNS trigger AS $$
+BEGIN
+  IF NEW.order_snapshot IS DISTINCT FROM OLD.order_snapshot THEN
+    RAISE EXCEPTION 'takeaway order snapshots are immutable'
+      USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS protect_takeaway_order_snapshot ON takeaway_orders;
+CREATE TRIGGER protect_takeaway_order_snapshot
+  BEFORE UPDATE ON takeaway_orders
+  FOR EACH ROW
+  EXECUTE FUNCTION prevent_takeaway_order_snapshot_update();
+
+CREATE OR REPLACE FUNCTION prevent_takeaway_order_event_mutation()
+RETURNS trigger AS $$
+BEGIN
+  RAISE EXCEPTION 'takeaway order events are append-only'
+    USING ERRCODE = 'check_violation';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS protect_takeaway_order_events ON takeaway_order_events;
+CREATE TRIGGER protect_takeaway_order_events
+  BEFORE UPDATE OR DELETE ON takeaway_order_events
+  FOR EACH ROW
+  EXECUTE FUNCTION prevent_takeaway_order_event_mutation();
+
+DROP TRIGGER IF EXISTS update_takeaway_option_groups_updated_at
+  ON takeaway_option_groups;
+CREATE TRIGGER update_takeaway_option_groups_updated_at
+  BEFORE UPDATE ON takeaway_option_groups
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_takeaway_option_choices_updated_at
+  ON takeaway_option_choices;
+CREATE TRIGGER update_takeaway_option_choices_updated_at
+  BEFORE UPDATE ON takeaway_option_choices
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- 9. Indexes for High-Concurrency Performance & Rapid Lookup
+-- Unique constraints already provide indexes for option-group keys, order
+-- references, tracking hashes, and the menu-item side of the mapping PK.
 CREATE INDEX IF NOT EXISTS idx_takeaway_option_choices_group ON takeaway_option_choices (group_id);
-CREATE INDEX IF NOT EXISTS idx_menu_item_option_groups_item ON menu_item_option_groups (item_id);
+CREATE INDEX IF NOT EXISTS idx_menu_item_option_groups_group ON menu_item_option_groups (group_id);
 CREATE INDEX IF NOT EXISTS idx_takeaway_orders_status ON takeaway_orders (status);
 CREATE INDEX IF NOT EXISTS idx_takeaway_orders_pickup_time ON takeaway_orders (pickup_time);
 CREATE INDEX IF NOT EXISTS idx_takeaway_orders_placed_at ON takeaway_orders (placed_at DESC);
 CREATE INDEX IF NOT EXISTS idx_takeaway_order_events_order ON takeaway_order_events (order_id, created_at);
 
--- 9. Default Takeaway Settings
+-- 10. Default Takeaway Settings
 INSERT INTO site_settings (key, value) VALUES (
   'takeaway_settings',
   '{
-    "takeaway_enabled": true,
+    "takeaway_enabled": false,
     "pause_mode": false,
     "operating_hours": {
       "monday":    [{"open": "12:00", "close": "14:30"}, {"open": "19:00", "close": "22:30"}],
@@ -344,7 +467,8 @@ $$\text{Order Subtotal} = \sum_{j=1}^{m} \text{Line Item Subtotal}_j$$
 $$\text{Final Total TTC} = \max\left(0.00, \;\; \text{Order Subtotal} - \text{Takeaway Promo Discount}\right)$$
 
 ### 5.2 Configurable VAT Architecture
-- Each dish in `menu_items` specifies `vat_rate numeric(4,2)` (e.g. `5.50` or `20.00`).
+- Each dish in `menu_items` has a nullable `vat_rate numeric(4,2)`. It defaults to `NULL`; an administrator explicitly configures the applicable rate (for example `5.50`, `10.00`, or `20.00`) before enabling the dish for Takeaway.
+- The database constraint `chk_menu_items_takeaway_requires_vat` rejects `takeaway_available = true` while `vat_rate IS NULL`. No product-type heuristic or automatic VAT assignment is used.
 - Option choices inherit the parent dish's VAT rate unless `vat_rate_override` is configured on the choice.
 - **Base HT and Tax Calculation**:
   $$\text{Line Base HT} = \frac{\text{Line Item Subtotal}}{1 + \frac{\text{Effective VAT Rate}}{100}}$$
@@ -373,7 +497,7 @@ sequenceDiagram
     API->>DB: SELECT pg_advisory_xact_lock(hashtext('takeaway_slot:' || $pickup_slot_iso))
     Note over DB: Advisory lock acquired for specific 15-min slot
     API->>DB: SELECT value FROM site_settings WHERE key = 'takeaway_settings'
-    Note over API: Verify takeaway_enabled=true, pause_mode=false, operating hours & cutoff
+    Note over API: Require explicit admin activation, pause_mode=false, operating hours & cutoff
     API->>DB: SELECT COUNT(*)::int FROM takeaway_orders WHERE pickup_time = $slot AND status != 'CANCELLED'
     Note over API: If max_orders_per_slot > 0 AND count >= max_orders_per_slot -> ROLLBACK & 409 Conflict
     API->>DB: Query menu_items and takeaway_option_choices by IDs
@@ -465,7 +589,7 @@ sequenceDiagram
 
 ## 8. Public Takeaway Configuration Endpoint (`GET /api/takeaway/config`)
 
-To prevent exposing internal admin settings or arbitrary database keys via the generic `/api/db/site_settings` route, a dedicated public configuration endpoint is implemented.
+To prevent exposing internal admin settings or arbitrary database keys via the generic `/api/db/site_settings` route, a dedicated public configuration endpoint is implemented in Phase 3. Phase 1 only restricts generic public `site_settings` reads to the specific keys required by the existing public website; it does not expose `takeaway_settings` or add this endpoint early.
 
 ### 8.1 Public Sanitized Schema (`GET /api/takeaway/config`)
 Returns strictly customer-necessary operational data:
@@ -646,12 +770,13 @@ gantt
 ```
 
 ### Phase 1: Data Model, Migrations & Global Settings
-- **Scope**: Create `db/init/002_takeaway.sql`, update `lib/postgres/db.ts`, `lib/postgres/types.ts`, `app/api/db/[table]/route.ts`, and `app/api/admin/setup/route.ts`. Seed default `takeaway_settings`.
+- **Scope**: Create `db/init/002_takeaway.sql`; update `lib/postgres/db.ts`, `lib/postgres/types.ts`, `app/api/db/[table]/route.ts`, `app/api/admin/setup/route.ts`, and `app/api/admin/migrate/route.ts`; package migrations in the standalone Docker image; seed safe default `takeaway_settings` with Takeaway disabled; normalize existing products to Takeaway-ineligible and VAT-unclassified; require configured VAT before eligibility; and restrict generic public `site_settings` reads without implementing `GET /api/takeaway/config` early.
+- **Boundary**: Phase 1 enforces safe row consistency and schema invariants only. The authoritative pricing equation and order creation remain Phase 4, and legal lifecycle transitions remain Phase 5 in the dedicated admin status/domain API. Proper Spanish/Italian category translations remain a Phase 2 activation prerequisite. The migration supports the approved clean/current schema and corrected Phase 1 upgrade path; arbitrary externally-created partial Takeaway schemas are not a Phase 1 compatibility target and may require a dedicated versioned repair migration if encountered.
 - **Validation**: Verify tables, foreign keys, and indexes in PostgreSQL; execute `npx tsc --noEmit`.
 
 ### Phase 2: Takeaway Menu Administration & Option Groups
 - **Scope**: Implement `TakeawayOptionGroupsManager.tsx`, `TakeawayMenuManager.tsx`, and `TakeawaySettingsPanel.tsx` in Admin.
-- **Validation**: Create reusable option groups (*"Cuisson"*, *"Fromages"*, *"Sauces"*), assign to items, test positive/negative modifiers, and update takeaway settings.
+- **Validation**: Create reusable option groups (*"Cuisson"*, *"Fromages"*, *"Sauces"*), assign to items, test positive/negative modifiers, complete proper Spanish/Italian category translations, configure VAT and product eligibility, review settings, and explicitly activate Takeaway only when configuration is ready.
 
 ### Phase 3: Customer Takeaway Catalog & Customization Drawer
 - **Scope**: Implement `TakeawayMenu.tsx`, `GET /api/takeaway/config`, and `TakeawayItemCustomizer.tsx` with responsive drawer/modal and Framer Motion animations.

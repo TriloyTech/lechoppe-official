@@ -71,7 +71,7 @@ All business parameters are managed via a dedicated **Takeaway Settings** config
 
 | Setting Key | Type | Default Value | Description |
 | :--- | :--- | :--- | :--- |
-| `takeaway_enabled` | Boolean | `true` | Master toggle to enable or disable the entire takeaway feature on the public site. |
+| `takeaway_enabled` | Boolean | `false` | Master toggle to enable or disable the entire takeaway feature on the public site. Takeaway requires explicit administrator activation after configuration has been reviewed. |
 | `pause_mode` | Boolean | `false` | **One-click Pause Takeaway / Busy Mode**. Instantly halts incoming orders during kitchen overload with a polite frontend notice. |
 | `operating_hours` | JSON | Matches Dine-in | Independent takeaway operating schedule (supports distinct lunch/dinner windows per day). |
 | `closing_cutoff_minutes` | Integer | `30` min | Cutoff buffer before kitchen closing when takeaway ordering automatically stops accepting orders. |
@@ -89,7 +89,7 @@ All business parameters are managed via a dedicated **Takeaway Settings** config
 ## 5. Takeaway Menu Management & Categories
 
 ### 5.1 Takeaway Catalog Controls
-- **Takeaway Eligibility**: Each menu item has a `takeaway_available` boolean flag. Items can be available for dine-in only, takeaway only, or both.
+- **Takeaway Eligibility**: Each menu item has a `takeaway_available` boolean flag. Existing and newly created/unclassified items default to `false`; an administrator must explicitly opt a product into Takeaway after assigning a valid VAT rate. Items can be available for dine-in only, takeaway only, or both, and the existing catalog is never enabled automatically.
 - **Dedicated Takeaway View**: The public website provides a dedicated takeaway catalog tab and filterable presentation.
 - **Catalog Ordering**: Admin can sort categories and items to highlight bestsellers, combos, and chef recommendations.
 
@@ -106,7 +106,7 @@ All business parameters are managed via a dedicated **Takeaway Settings** config
 - **Identification**: Unique identifier (`id` UUID).
 - **Names & Descriptions**: Multilingual labels (`fr`, `en`, `es`, `it`).
 - **Base Price**: Base monetary cost in Euros (`price`, decimal TTC).
-- **VAT Rate**: Item-specific French VAT percentage (`vat_rate`, e.g., `5.50` for standard food/soft drinks, `20.00` for alcoholic beverages). Default is `5.50%`.
+- **VAT Rate**: Nullable, item-specific French VAT percentage (`vat_rate`). Existing and newly created/unclassified products default to `NULL` and remain unclassified until an administrator explicitly assigns the applicable configured rate. No product-type tax heuristic or automatic `5.50%` assignment is used, and an item cannot be Takeaway-enabled without a valid configured VAT rate.
 - **Max Quantity per Order**: Admin-configurable per-item quantity cap (`max_quantity_per_order`, integer, default `0` = unlimited). Prevents sudden kitchen drain (e.g. max 6 of a specialty burger).
 - **Flags**: `available` (kitchen stock), `takeaway_available` (takeaway sales), `chef_suggestion` (star badge), `has_allergens`, `allergens_text`.
 - **Option Group Links**: Ordered associations linking the item to one or more Option Groups.
@@ -172,9 +172,8 @@ $$\text{Order Final Total (TTC)} = \max\left(0.00, \;\; \text{Order Subtotal} - 
 - Promos apply a percentage or fixed discount to the order subtotal according to configuration.
 
 ### 9.4 French VAT Recording
-- Standard French restaurant VAT rates apply:
-  - **5.5%**: Prepared food and non-alcoholic beverages intended for immediate takeaway consumption.
-  - **20.0%**: Alcoholic beverages.
+- VAT is configuration-driven per menu item, with an optional configured override on an option choice. The system does not infer a rate from product type.
+- Administrators are responsible for assigning the applicable rate before making an item Takeaway-eligible. Rates such as `5.50%`, `10.00%`, or `20.00%` are illustrative supported configurations, not automatic classifications or defaults.
 - The order snapshot records the calculated VAT amounts per rate tier for accounting and historical reporting.
 
 ---
@@ -368,6 +367,8 @@ STATUT RÈGLEMENT : [ NON PAYÉ ]
 > **Immutability Guarantee**: Every submitted order stores a frozen, self-contained JSON snapshot. Future edits to menu item names, prices, VAT rates, option groups, or choice modifiers will never alter historical order records.
 
 ### Snapshot Schema Structure:
+The following snapshot is an illustrative order whose items were explicitly configured with a `5.50%` VAT rate; it does not represent a catalog default.
+
 ```json
 {
   "order_reference": "ECH-8419",
@@ -516,6 +517,8 @@ Full multi-language coverage across **French (`fr`)**, **English (`en`)**, **Spa
 
 ### Admin Management:
 - [ ] Admin can toggle Takeaway on/off and activate One-Click *Pause / Busy Mode*.
+- [ ] Takeaway remains disabled until an administrator reviews configuration and explicitly activates it.
+- [ ] Existing and new/unclassified menu items remain Takeaway-ineligible until an administrator assigns a valid VAT rate and explicitly opts them in.
 - [ ] Admin can configure operating hours, closing cutoffs, lead times, slot intervals, advance booking days, and max orders per slot.
 - [ ] Admin can manage categories, menu items, reusable option groups, and individual option choices.
 - [ ] Admin receives incoming orders with default audio chime alert (toggleable in settings).
@@ -532,17 +535,20 @@ Full multi-language coverage across **French (`fr`)**, **English (`en`)**, **Spa
 
 ## 24. Confirmed Assumptions & Operational Defaults
 
-1. **Default Lead Time**: 20 minutes for ASAP orders.
-2. **Default Slot Interval**: 15 minutes.
-3. **Default Operating Hours**: Matches existing restaurant opening hours unless custom takeaway schedule is provided.
-4. **Default Closing Cutoff**: 30 minutes before kitchen close.
-5. **Default Advance Order Window**: Same-day only (`0` days).
-6. **Default Capacity**: Unlimited orders per slot (`0`) unless configured.
-7. **Default Per-Item Cap**: Unlimited (`0`) unless configured on the item.
-8. **Default Minimum/Maximum Order Amount**: None (`0.00 €`).
-9. **Counter Payment Recording**: Staff manually selects `cash`, `card`, `ticket_restaurant`, or `other` upon collection.
-10. **Email Delivery**: Resend used via decoupled adapter with API key stored in `RESEND_API_KEY`.
-11. **Audio Chime**: Clean default electronic notification sound bundled as a static asset.
+1. **Default Takeaway Activation**: Disabled (`takeaway_enabled = false`) until an administrator reviews the configuration and explicitly activates it.
+2. **Default Product Eligibility**: Existing and new/unclassified menu items are ineligible (`takeaway_available = false`) until an administrator explicitly opts them in.
+3. **Default VAT Classification**: Unclassified (`vat_rate = NULL`); a valid administrator-configured VAT rate is required before Takeaway eligibility can be enabled.
+4. **Default Lead Time**: 20 minutes for ASAP orders.
+5. **Default Slot Interval**: 15 minutes.
+6. **Default Operating Hours**: Matches existing restaurant opening hours unless custom takeaway schedule is provided.
+7. **Default Closing Cutoff**: 30 minutes before kitchen close.
+8. **Default Advance Order Window**: Same-day only (`0` days).
+9. **Default Capacity**: Unlimited orders per slot (`0`) unless configured.
+10. **Default Per-Item Cap**: Unlimited (`0`) unless configured on the item.
+11. **Default Minimum/Maximum Order Amount**: None (`0.00 €`).
+12. **Counter Payment Recording**: Staff manually selects `cash`, `card`, `ticket_restaurant`, or `other` upon collection.
+13. **Email Delivery**: Resend used via decoupled adapter with API key stored in `RESEND_API_KEY`.
+14. **Audio Chime**: Clean default electronic notification sound bundled as a static asset.
 
 ---
 
