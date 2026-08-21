@@ -6,6 +6,7 @@ import { applyDiscountToVatBreakdown, calculateUnitPrice, calculateVatBreakdown,
 import { generateCandidateReference, generateTrackingToken, hashTrackingToken, MAX_REFERENCE_ATTEMPTS } from "@/lib/takeaway/security";
 import { isValidPickupTime } from "@/lib/takeaway/slots";
 import { parseOrderPayload } from "@/lib/takeaway/validation";
+import { sendOrderConfirmation } from "@/lib/email";
 
 const attempts = new Map<string, number[]>();
 const PUBLIC_ERRORS = new Set(["Takeaway ordering is closed", "Pickup slot is no longer valid", "An item or option is unavailable", "Item unavailable", "Invalid option selection", "An option group is unavailable", "Option selection requirements changed", "Item quantity limit exceeded", "Invalid promotion code", "Order is below the minimum amount", "Order exceeds the maximum amount"]);
@@ -65,6 +66,7 @@ export async function POST(request: NextRequest) {
     const snapshot: Record<string, unknown> = { order_reference: "", currency: "EUR", placed_at: new Date().toISOString(), customer: { name: body.customer_name, phone: body.customer_phone, email: body.customer_email, pickup_type: body.pickup_time_type, pickup_time: pickup.toISOString(), notes: body.customer_notes || null }, items: snapshotItems, totals: { subtotal_ttc: fromCents(subtotalCents), discount_ttc: fromCents(discountCents), promo_code: promoCode, final_total_ttc: fromCents(finalCents), vat_breakdown: applyDiscountToVatBreakdown(mergeVatBreakdowns(vatEntries), subtotalCents, finalCents) }, cancellation: { reason_code: null, reason_label: null, note: null } };
     const order = await insertOrder(client, [hashTrackingToken(token), body.customer_name, body.customer_email, body.customer_phone, body.pickup_time_type, pickup, body.customer_notes || null, fromCents(subtotalCents), fromCents(discountCents), promoCode, fromCents(finalCents), snapshot, body.lang]);
     await client.query("INSERT INTO takeaway_order_events (order_id, event_type, previous_status, new_status, performed_by) VALUES ($1,'ORDER_CREATED',NULL,'NEW','customer')", [order.id]); await client.query("COMMIT");
+    void sendOrderConfirmation({ to: body.customer_email, lang: body.lang, reference: order.order_reference, pickup: pickup.toLocaleString(body.lang, { timeZone: "Europe/Paris" }), total: fromCents(finalCents), trackingUrl: `${request.nextUrl.origin}/takeaway/order/${token}`, items: snapshotItems.map((item) => ({ quantity: item.quantity, name: item.name })) }).catch((error) => console.error("Takeaway confirmation email failed", error));
     return NextResponse.json({ success: true, order_reference: order.order_reference, tracking_url: `/takeaway/order/${token}` }, { status: 201 });
   } catch (error) { await client.query("ROLLBACK").catch(() => undefined); const message = error instanceof Error && PUBLIC_ERRORS.has(error.message) ? error.message : "Order creation failed"; if (message === "Order creation failed") console.error("Takeaway order creation failed", error); return NextResponse.json({ error: message }, { status: message === "Order creation failed" ? 500 : 400 }); } finally { client.release(); }
 }
