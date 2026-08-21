@@ -1,0 +1,10 @@
+import type { OperatingHours, TakeawaySettings } from "./types";
+
+const DAY_BY_SHORT: Record<string, keyof OperatingHours> = { Sun: "sunday", Mon: "monday", Tue: "tuesday", Wed: "wednesday", Thu: "thursday", Fri: "friday", Sat: "saturday" };
+const PARIS = "Europe/Paris";
+
+function parisParts(date: Date) { const parts = new Intl.DateTimeFormat("en-CA", { timeZone: PARIS, weekday: "short", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(date); return Object.fromEntries(parts.map((part) => [part.type, part.value])); }
+export function parisDateTime(date: string, time: string) { const guess = new Date(`${date}T${time}:00Z`); const rendered = parisParts(guess); const targetMinutes = Number(time.slice(0, 2)) * 60 + Number(time.slice(3)); const renderedMinutes = Number(rendered.hour) * 60 + Number(rendered.minute); return new Date(guess.getTime() + (targetMinutes - renderedMinutes) * 60_000); }
+export function isValidPickupTime(value: Date, settings: TakeawaySettings, now = new Date()) { return generateSlots(settings, now).some((slot) => Math.abs(slot.getTime() - value.getTime()) < 1000); }
+
+export function generateSlots(settings: TakeawaySettings, now = new Date()) { const output: Date[] = []; for (let day = 0; day <= settings.advance_order_max_days; day++) { const base = new Date(now.getTime() + day * 86_400_000); const parts = parisParts(base); const date = `${parts.year}-${parts.month}-${parts.day}`; const weekday = DAY_BY_SHORT[parts.weekday]; for (const window of settings.operating_hours[weekday]) { const open = Number(window.open.slice(0, 2)) * 60 + Number(window.open.slice(3)); const close = Number(window.close.slice(0, 2)) * 60 + Number(window.close.slice(3)) - settings.closing_cutoff_minutes; for (let minute = open; minute <= close; minute += settings.slot_interval_minutes) { const slot = parisDateTime(date, `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`); if (slot >= new Date(now.getTime() + settings.prep_lead_time_minutes * 60_000)) output.push(slot); } } } return output; }

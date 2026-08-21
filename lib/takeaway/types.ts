@@ -3,6 +3,7 @@ import type { Lang } from "@/context/LangContext";
 export type LocalizedText = Record<Lang, string>;
 export type PaymentMethod = "cash" | "card" | "ticket_restaurant" | "other";
 export type OrderStatus = "NEW" | "ACCEPTED" | "PREPARING" | "READY" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
+export type PaymentStatus = "UNPAID" | "PAID";
 
 export interface OperatingWindow { open: string; close: string }
 export type OperatingHours = Record<"monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday", OperatingWindow[]>;
@@ -62,6 +63,31 @@ export interface TakeawayCatalogItem {
   display_order: number;
   option_groups: TakeawayOptionGroup[];
 }
+
+export interface CartLine {
+  key: string;
+  item: TakeawayCatalogItem;
+  choiceIds: string[];
+  specialInstructions: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface CreateOrderPayload {
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string;
+  customer_notes?: string;
+  pickup_time_type: "asap" | "scheduled";
+  pickup_time: string;
+  promo_code?: string;
+  lang: Lang;
+  bot_token: string;
+  website?: string;
+  items: { item_id: string; choice_ids: string[]; special_instructions?: string; quantity: number }[];
+}
+
+export interface VatBreakdown { rate: number; base_ht: number; vat_amount: number }
 
 export const DEFAULT_TAKEAWAY_SETTINGS: TakeawaySettings = {
   takeaway_enabled: false,
