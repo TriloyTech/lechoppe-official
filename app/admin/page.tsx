@@ -13,6 +13,7 @@ import { useSiteContent, DEFAULT_CONTENT, SiteContent } from "@/lib/hooks/useSit
 import TakeawayMenuManager from "@/components/admin/takeaway/TakeawayMenuManager";
 import TakeawayOptionGroupsManager from "@/components/admin/takeaway/TakeawayOptionGroupsManager";
 import TakeawaySettingsPanel from "@/components/admin/takeaway/TakeawaySettingsPanel";
+import TakeawayOrdersPanel from "@/components/admin/takeaway/TakeawayOrdersPanel";
 
 /* ── Compact language dropdown for admin pages ── */
 function AdminLangDropdown() {
@@ -1494,7 +1495,7 @@ export default function AdminDashboard() {
             {activeTab === "categories" && <CategoriesPanel t={t} />}
             {activeTab === "content" && <ContentPanel t={t} />}
             {activeTab === "offers" && <OffersPanel db={db} t={t} />}
-            {activeTab === "takeaway" && <div className="max-w-7xl space-y-8"><TakeawaySettingsPanel /><TakeawayMenuManager /><TakeawayOptionGroupsManager /></div>}
+            {activeTab === "takeaway" && <div className="max-w-7xl space-y-8"><TakeawayOrdersPanel /><TakeawaySettingsPanel /><TakeawayMenuManager /><TakeawayOptionGroupsManager /></div>}
             
             {activeTab === "reservations" && (
               <div className="max-w-6xl">
