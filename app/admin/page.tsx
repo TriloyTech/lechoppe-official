@@ -10,10 +10,7 @@ import type { MenuItem, Reservation } from "@/lib/postgres/types";
 import { useLang, LANG_LABELS, LANG_FLAGS, Lang } from "@/context/LangContext";
 import { useCategories, Category, DEFAULT_CATEGORIES } from "@/lib/hooks/useCategories";
 import { useSiteContent, DEFAULT_CONTENT, SiteContent } from "@/lib/hooks/useSiteContent";
-import TakeawayMenuManager from "@/components/admin/takeaway/TakeawayMenuManager";
-import TakeawayOptionGroupsManager from "@/components/admin/takeaway/TakeawayOptionGroupsManager";
-import TakeawaySettingsPanel from "@/components/admin/takeaway/TakeawaySettingsPanel";
-import TakeawayOrdersPanel from "@/components/admin/takeaway/TakeawayOrdersPanel";
+import TakeawayAdminWorkspace from "@/components/admin/takeaway/TakeawayAdminWorkspace";
 import { buildAdminOfferPayload, createAdminOfferDraft, type AdminOfferDraft } from "@/lib/takeaway/adminOffer";
 
 /* ── Compact language dropdown for admin pages ── */
@@ -1490,7 +1487,7 @@ export default function AdminDashboard() {
             {activeTab === "categories" && <CategoriesPanel t={t} />}
             {activeTab === "content" && <ContentPanel t={t} />}
             {activeTab === "offers" && <OffersPanel db={db} t={t} />}
-            {activeTab === "takeaway" && <div className="max-w-7xl space-y-8"><TakeawayOrdersPanel /><TakeawaySettingsPanel /><TakeawayMenuManager /><TakeawayOptionGroupsManager /></div>}
+            {activeTab === "takeaway" && <div className="max-w-7xl"><TakeawayAdminWorkspace /></div>}
             
             {activeTab === "reservations" && (
               <div className="max-w-6xl">

@@ -652,7 +652,8 @@ export interface PublicTakeawayConfig {
 | Route / Interface | Method | Auth Required | Main Purpose |
 | :--- | :--- | :--- | :--- |
 | `/api/takeaway/config` | `GET` | Public | Returns sanitized public takeaway operational configuration. |
-| `/api/takeaway/menu` | `GET` | Public | Returns active categories, takeaway items, linked option groups, and choices. |
+| `/api/takeaway/menu` | `GET` | Public | Returns active categories and VAT-configured, Takeaway-eligible items (including sold-out items with explicit `available: false`), linked option groups, and choices. Non-Takeaway and VAT-unclassified items remain hidden. |
+| `/api/takeaway/promos/validate` | `POST` | Public (Rate-limited) | Validates a normalized `promo_code` against existing offers and returns only a customer-safe percentage preview or a specific failure reason. Order creation always revalidates independently. |
 | `/api/takeaway/slots` | `GET` | Public | Returns available 15-minute pickup slots with capacity availability flags. |
 | `/api/takeaway/orders` | `POST` | Public (Rate-limited + BotCheck) | Validates, advisory-locks slot, calculates prices, commits order + snapshot, returns `{ success: true, order_reference, tracking_url }`. |
 | `/api/takeaway/orders/[token]` | `GET` | Public (Token Hash) | Returns sanitized `CustomerOrderDTO` for live tracking. |

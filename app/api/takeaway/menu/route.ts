@@ -15,6 +15,7 @@ export async function GET() {
     const [categoriesResult, itemsResult] = await Promise.all([
       pool.query("SELECT value FROM site_settings WHERE key = $1", ["categories"]),
       pool.query(`SELECT m.id, m.name, m.description, m.price, m.category, m.image_url,
+          m.available,
           m.has_allergens, m.allergens_text, m.vat_rate, m.max_quantity_per_order, m.display_order,
           COALESCE(jsonb_agg(jsonb_build_object(
             'id', g.id, 'key', g.key, 'name', g.name, 'selection_type', g.selection_type,
@@ -29,14 +30,16 @@ export async function GET() {
         FROM menu_items m
         LEFT JOIN menu_item_option_groups link ON link.item_id = m.id
         LEFT JOIN takeaway_option_groups g ON g.id = link.group_id AND g.is_active
-        WHERE m.available = true AND m.takeaway_available = true AND m.vat_rate IS NOT NULL
+        WHERE m.takeaway_available = true AND m.vat_rate IS NOT NULL
         GROUP BY m.id
         ORDER BY m.category, m.display_order, m.name`),
     ]);
     const rawCategories = Array.isArray(categoriesResult.rows[0]?.value) ? categoriesResult.rows[0].value : FALLBACK_CATEGORIES;
-    const eligibleKeys = new Set(itemsResult.rows.map((item) => item.category));
+    const configuredKeys = new Set(rawCategories.filter((category: { key?: string; is_active?: boolean }) => category.is_active !== false && category.key).map((category: { key: string }) => category.key));
+    const items = itemsResult.rows.filter((item) => configuredKeys.has(item.category));
+    const eligibleKeys = new Set(items.map((item) => item.category));
     const categories = rawCategories.filter((category: { key?: string; is_active?: boolean }) => category.is_active !== false && category.key && eligibleKeys.has(category.key)).sort((a: { display_order?: number }, b: { display_order?: number }) => (a.display_order ?? 0) - (b.display_order ?? 0));
-    return NextResponse.json({ categories, items: itemsResult.rows });
+    return NextResponse.json({ categories, items });
   } catch {
     return NextResponse.json({ categories: [], items: [], unavailable: true }, { status: 503 });
   }

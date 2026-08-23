@@ -10,6 +10,7 @@ import { sendOrderConfirmation } from "@/lib/email";
 import { BoundedRateLimiter, requestRateLimitKey } from "@/lib/takeaway/rateLimit";
 import { percentageDiscountCents, requireEligiblePromotion, validateBusinessQuantity, validateCatalogLookup, validateOptionSelections, validateSubtotalLimits } from "@/lib/takeaway/orderRules";
 import { sanitizeTakeawaySettings } from "@/lib/takeaway/settings";
+import { normalizePromoCode, validatePromotionRecord } from "@/lib/takeaway/promotions";
 
 const limiter = new BoundedRateLimiter(10_000);
 const PUBLIC_ERRORS = new Set(["Takeaway ordering is closed", "Pickup slot is no longer valid", "ASAP must use the earliest available slot", "An item or option is unavailable", "Item unavailable", "Invalid option selection", "Option selection requirements changed", "Item quantity limit exceeded", "Invalid promotion code", "Order is below the minimum amount", "Order exceeds the maximum amount"]);
@@ -69,7 +70,14 @@ export async function POST(request: NextRequest) {
       snapshotItems.push({ item_id: item.id, name: item.name, description: item.description, base_price: Number(item.price), vat_rate: Number(item.vat_rate), quantity: line.quantity, special_instructions: String(line.special_instructions ?? "").trim(), selected_options: selectedChoices.map((choice) => ({ group_name: choice.group_name as LocalizedText, choice_name: choice.name as LocalizedText, price_modifier: Number(choice.price_modifier), vat_rate: Number(choice.vat_rate_override ?? item.vat_rate) })), unit_price_ttc: fromCents(unitCents), line_total_ttc: fromCents(lineCents) });
     }
     for (const [itemId, quantity] of quantityByItem) validateBusinessQuantity(Number(itemMap.get(itemId).max_quantity_per_order), quantity);
-    let discountCents = 0; let promoCode: string | null = null; if (body.promo_code) { const result = await client.query("SELECT code, discount FROM offers WHERE upper(code) = $1 AND active AND takeaway_eligible AND (valid_until IS NULL OR valid_until >= CURRENT_DATE)", [body.promo_code]); const offer = requireEligiblePromotion(result.rows[0]); promoCode = offer.code; discountCents = percentageDiscountCents(subtotalCents, offer.discount); }
+    let discountCents = 0; let promoCode: string | null = null; if (body.promo_code) {
+      const normalizedPromo = normalizePromoCode(body.promo_code);
+      const result = await client.query("SELECT code, discount, active, takeaway_eligible, valid_until FROM offers WHERE upper(code) = $1 LIMIT 1", [normalizedPromo]);
+      const validation = validatePromotionRecord(result.rows[0]);
+      if (!validation.valid) throw new Error("Invalid promotion code");
+      const offer = requireEligiblePromotion({ code: validation.code, discount: validation.discount_percentage });
+      promoCode = offer.code; discountCents = percentageDiscountCents(subtotalCents, offer.discount);
+    }
     validateSubtotalLimits(subtotalCents, toCents(settings.min_order_amount), toCents(settings.max_order_amount));
     const finalCents = Math.max(0, subtotalCents - discountCents);
     const snapshot: Record<string, unknown> = { order_reference: "", currency: "EUR", placed_at: new Date().toISOString(), customer: { name: body.customer_name, phone: body.customer_phone, email: body.customer_email, pickup_type: body.pickup_time_type, pickup_time: pickup.toISOString(), notes: body.customer_notes || null }, items: snapshotItems, totals: { subtotal_ttc: fromCents(subtotalCents), discount_ttc: fromCents(discountCents), promo_code: promoCode, final_total_ttc: fromCents(finalCents), vat_breakdown: applyDiscountToVatBreakdown(mergeVatBreakdowns(vatEntries), subtotalCents, finalCents) }, cancellation: { reason_code: null, reason_label: null, note: null } };

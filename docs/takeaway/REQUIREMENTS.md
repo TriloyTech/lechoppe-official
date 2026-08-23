@@ -170,6 +170,8 @@ $$\text{Order Final Total (TTC)} = \max\left(0.00, \;\; \text{Order Subtotal} - 
 ### 9.3 Promotional Codes & Takeaway Eligibility
 - Existing promo codes (e.g. `BIENVENUE15`) do **not** apply automatically to takeaway unless explicitly flagged with `takeaway_eligible = true` in admin settings.
 - Promos apply a percentage or fixed discount to the order subtotal according to configuration.
+- The public `POST /api/takeaway/promos/validate` endpoint accepts only `promo_code`, normalizes it consistently with order submission, and returns a customer-safe percentage preview or a specific `INVALID`, `INACTIVE`, `EXPIRED`, or `NOT_TAKEAWAY_ELIGIBLE` reason. It is publicly rate-limited and exposes no offer IDs or administrative metadata.
+- Promo validation is a display preview only. `POST /api/takeaway/orders` independently revalidates the offer and remains authoritative for eligibility, discount, and the final TTC total.
 
 ### 9.4 French VAT Recording
 - VAT is configuration-driven per menu item, with an optional configured override on an option choice. The system does not infer a rate from product type.
