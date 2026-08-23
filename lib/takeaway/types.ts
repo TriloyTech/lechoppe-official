@@ -59,6 +59,7 @@ export interface TakeawayCatalogItem {
   price: number;
   category: string;
   image_url: string | null;
+  available: boolean;
   has_allergens: boolean;
   allergens_text: string | null;
   vat_rate: number;

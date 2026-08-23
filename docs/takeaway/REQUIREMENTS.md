@@ -89,14 +89,14 @@ All business parameters are managed via a dedicated **Takeaway Settings** config
 ## 5. Takeaway Menu Management & Categories
 
 ### 5.1 Takeaway Catalog Controls
-- **Takeaway Eligibility**: Each menu item has a `takeaway_available` boolean flag. Existing and newly created/unclassified items default to `false`; an administrator must explicitly opt a product into Takeaway after assigning a valid VAT rate. Items can be available for dine-in only, takeaway only, or both, and the existing catalog is never enabled automatically.
+- **Takeaway Eligibility**: Each menu item has a `takeaway_available` boolean flag. This item-level flag is the sole catalog-participation rule; existing and newly created items default to `false` until an administrator explicitly opts them in. Category is presentation/grouping metadata only and never gates Takeaway visibility. Kitchen availability remains independent: enabled sold-out items stay visible but cannot be ordered.
 - **Dedicated Takeaway View**: The public website provides a dedicated takeaway catalog tab and filterable presentation.
 - **Catalog Ordering**: Admin can sort categories and items to highlight bestsellers, combos, and chef recommendations.
 
 ### 5.2 Categories
 - **Attributes**: `key` (unique alphanumeric slug), `emoji` (icon), `name` (multilingual: `fr`, `en`, `es`, `it`), `display_order` (integer), `is_active` (boolean).
 - **Admin Capabilities**: Create, edit, reorder, translate, and deactivate categories.
-- **Frontend Presentation**: Sticky horizontal category navigation bar on mobile and desktop.
+- **Frontend Presentation**: Sticky horizontal category navigation bar on mobile and desktop, derived from the category values of actual Takeaway-enabled items. Matching restaurant category metadata supplies labels, icons, and ordering; unknown/custom category values receive a safe presentation fallback and remain visible.
 
 ---
 
@@ -106,7 +106,7 @@ All business parameters are managed via a dedicated **Takeaway Settings** config
 - **Identification**: Unique identifier (`id` UUID).
 - **Names & Descriptions**: Multilingual labels (`fr`, `en`, `es`, `it`).
 - **Base Price**: Base monetary cost in Euros (`price`, decimal TTC).
-- **VAT Rate**: Nullable, item-specific French VAT percentage (`vat_rate`). Existing and newly created/unclassified products default to `NULL` and remain unclassified until an administrator explicitly assigns the applicable configured rate. No product-type tax heuristic or automatic `5.50%` assignment is used, and an item cannot be Takeaway-enabled without a valid configured VAT rate.
+- **VAT Rate**: Required numeric, item-specific French VAT percentage (`vat_rate`) with database default `0.00`. Zero is valid; administrators may explicitly configure another rate in the valid range `0 <= vat_rate < 100`. No product-type tax heuristic or automatic category-based assignment is used.
 - **Max Quantity per Order**: Admin-configurable per-item quantity cap (`max_quantity_per_order`, integer, default `0` = unlimited). Prevents sudden kitchen drain (e.g. max 6 of a specialty burger).
 - **Flags**: `available` (kitchen stock), `takeaway_available` (takeaway sales), `chef_suggestion` (star badge), `has_allergens`, `allergens_text`.
 - **Option Group Links**: Ordered associations linking the item to one or more Option Groups.
@@ -170,10 +170,13 @@ $$\text{Order Final Total (TTC)} = \max\left(0.00, \;\; \text{Order Subtotal} - 
 ### 9.3 Promotional Codes & Takeaway Eligibility
 - Existing promo codes (e.g. `BIENVENUE15`) do **not** apply automatically to takeaway unless explicitly flagged with `takeaway_eligible = true` in admin settings.
 - Promos apply a percentage or fixed discount to the order subtotal according to configuration.
+- The public `POST /api/takeaway/promos/validate` endpoint accepts only `promo_code`, normalizes it consistently with order submission, and returns a customer-safe percentage preview or a specific `INVALID`, `INACTIVE`, `EXPIRED`, or `NOT_TAKEAWAY_ELIGIBLE` reason. It is publicly rate-limited and exposes no offer IDs or administrative metadata.
+- Promo validation is a display preview only. `POST /api/takeaway/orders` independently revalidates the offer and remains authoritative for eligibility, discount, and the final TTC total.
 
 ### 9.4 French VAT Recording
 - VAT is configuration-driven per menu item, with an optional configured override on an option choice. The system does not infer a rate from product type.
-- Administrators are responsible for assigning the applicable rate before making an item Takeaway-eligible. Rates such as `5.50%`, `10.00%`, or `20.00%` are illustrative supported configurations, not automatic classifications or defaults.
+- Base menu-item VAT defaults to `0.00%`; administrators may explicitly configure another valid rate. Rates such as `5.50%`, `10.00%`, or `20.00%` remain supported configurations, not category- or product-inferred classifications.
+- A `NULL` option-choice VAT override continues to inherit the parent menu item's VAT. A numeric override, including `0`, is explicit.
 - The order snapshot records the calculated VAT amounts per rate tier for accounting and historical reporting.
 
 ---
@@ -518,7 +521,8 @@ Full multi-language coverage across **French (`fr`)**, **English (`en`)**, **Spa
 ### Admin Management:
 - [ ] Admin can toggle Takeaway on/off and activate One-Click *Pause / Busy Mode*.
 - [ ] Takeaway remains disabled until an administrator reviews configuration and explicitly activates it.
-- [ ] Existing and new/unclassified menu items remain Takeaway-ineligible until an administrator assigns a valid VAT rate and explicitly opts them in.
+- [ ] Existing and new menu items remain Takeaway-ineligible until an administrator explicitly opts them in; the default `0.00%` VAT is valid and does not block activation.
+- [ ] Public Takeaway categories are derived from enabled items, and custom category keys remain discoverable without predefined metadata.
 - [ ] Admin can configure operating hours, closing cutoffs, lead times, slot intervals, advance booking days, and max orders per slot.
 - [ ] Admin can manage categories, menu items, reusable option groups, and individual option choices.
 - [ ] Admin receives incoming orders with default audio chime alert (toggleable in settings).
@@ -537,7 +541,7 @@ Full multi-language coverage across **French (`fr`)**, **English (`en`)**, **Spa
 
 1. **Default Takeaway Activation**: Disabled (`takeaway_enabled = false`) until an administrator reviews the configuration and explicitly activates it.
 2. **Default Product Eligibility**: Existing and new/unclassified menu items are ineligible (`takeaway_available = false`) until an administrator explicitly opts them in.
-3. **Default VAT Classification**: Unclassified (`vat_rate = NULL`); a valid administrator-configured VAT rate is required before Takeaway eligibility can be enabled.
+3. **Default VAT Rate**: `menu_items.vat_rate = 0.00`; zero is valid, and administrators may explicitly configure another rate in the valid range.
 4. **Default Lead Time**: 20 minutes for ASAP orders.
 5. **Default Slot Interval**: 15 minutes.
 6. **Default Operating Hours**: Matches existing restaurant opening hours unless custom takeaway schedule is provided.

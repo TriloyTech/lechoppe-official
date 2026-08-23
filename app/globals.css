@@ -234,3 +234,80 @@ select option { background-color: var(--card-bg); color: var(--fg); }
 .sage-pulse {
   animation: sage-glow 2.5s ease-in-out infinite;
 }
+
+/* ── Takeaway transactional system ── */
+.takeaway-display {
+  font-family: var(--font-bebas), sans-serif;
+  font-weight: 400;
+  line-height: .9;
+  letter-spacing: .045em;
+  text-transform: uppercase;
+  color: var(--fg);
+}
+.takeaway-kicker {
+  font: 600 .625rem/1 var(--font-inter), sans-serif;
+  letter-spacing: .28em;
+  text-transform: uppercase;
+  color: var(--sage);
+}
+.takeaway-panel {
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--surface);
+  box-shadow: var(--card-shadow);
+}
+.takeaway-input {
+  width: 100%;
+  min-height: 3rem;
+  border: 1px solid var(--input-border);
+  border-radius: .75rem;
+  background: var(--input-bg);
+  padding: .8rem 1rem;
+  color: var(--fg);
+  font: 400 .9rem/1.5 var(--font-inter), sans-serif;
+  outline: none;
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+.takeaway-input:focus { border-color: var(--sage); box-shadow: 0 0 0 3px rgba(124,184,149,.12); }
+.takeaway-primary,
+.takeaway-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: .75rem;
+  font: 600 .75rem/1 var(--font-inter), sans-serif;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+  transition: transform .2s ease, background-color .2s ease, border-color .2s ease;
+}
+.takeaway-primary { background: var(--sage); color: #07140d; }
+.takeaway-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 30px rgba(124,184,149,.15); }
+.takeaway-secondary { border: 1px solid var(--border-strong); color: var(--fg); background: transparent; }
+.takeaway-secondary:hover:not(:disabled) { border-color: var(--sage); background: var(--surface2); }
+.takeaway-choice {
+  display: flex;
+  min-height: 3.25rem;
+  cursor: pointer;
+  align-items: center;
+  gap: .75rem;
+  border: 1px solid var(--border);
+  border-radius: .75rem;
+  padding: .75rem 1rem;
+  color: var(--fg);
+  background: var(--surface);
+  font-size: .875rem;
+  transition: border-color .2s ease, background-color .2s ease;
+}
+.takeaway-choice:hover { border-color: rgba(124,184,149,.55); }
+.takeaway-choice.is-selected { border-color: var(--sage); background: rgba(124,184,149,.1); }
+.takeaway-choice.is-disabled { cursor: not-allowed; opacity: .42; }
+.takeaway-choice-mark { width: 1rem; height: 1rem; flex: 0 0 auto; border: 1px solid var(--border-strong); border-radius: 999px; }
+.takeaway-choice.is-selected .takeaway-choice-mark { border: 4px solid var(--sage); }
+.admin-input { display: block; width: 100%; margin-top: .5rem; border: 1px solid rgba(255,255,255,.1); border-radius: .5rem; background: rgba(0,0,0,.3); padding: .625rem; color: #fff; outline: none; }
+.admin-input:focus { border-color: rgba(124,184,149,.8); }
+.takeaway-primary:focus-visible, .takeaway-secondary:focus-visible, .takeaway-choice:focus-within, button:focus-visible, a:focus-visible { outline: 2px solid var(--sage); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .takeaway-primary, .takeaway-secondary, .takeaway-choice { transition: none; } }
+@media (max-width: 480px) {
+  .takeaway-display { overflow-wrap: anywhere; }
+  .takeaway-kicker + .takeaway-display { font-size: 2.75rem; }
+}
