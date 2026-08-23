@@ -19,7 +19,7 @@ export interface MenuItem {
   available: boolean;
   chef_suggestion: boolean;
   takeaway_available: boolean;
-  vat_rate: number | null;
+  vat_rate: number;
   max_quantity_per_order: number;
   display_order: number;
   image_url: string | null;

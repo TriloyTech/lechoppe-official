@@ -38,10 +38,6 @@ export default function TakeawayMenuManager() {
   useEffect(() => { void load(); }, [load]);
 
   const update = async (item: MenuItem, values: Partial<MenuItem>) => {
-    if (values.takeaway_available && (values.vat_rate ?? item.vat_rate) == null) {
-      setMessage(t({ fr: "TVA manquante : attribuez un taux avant d’activer cet article.", en: "Missing VAT: assign a rate before enabling this item.", es: "Falta el IVA: asigna un tipo antes de activar el artículo.", it: "IVA mancante: assegna un’aliquota prima di attivare l’articolo." }));
-      return;
-    }
     const { error } = await createClient().from("menu_items").update(values).eq("id", item.id);
     setMessage(error?.message ?? "");
     await load();
@@ -136,7 +132,7 @@ function TakeawayItemCard({ groups, item, lang, links, onOrderLink, onToggleLink
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
         <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><strong className="break-words text-white/90">{item.name}</strong><Availability available={item.available} t={t} /></div><p className="mt-1 text-xs text-white/35">{item.category}</p></div>
         <div className="grid min-w-0 gap-3 sm:grid-cols-3 lg:w-[34rem]">
-          <Field label={t({ fr: "TVA %", en: "VAT %", es: "IVA %", it: "IVA %" })}><input className="admin-input" max="99.99" min="0" onChange={(event) => void onUpdate(item, { vat_rate: event.target.value === "" ? null : Number(event.target.value), ...(event.target.value === "" ? { takeaway_available: false } : {}) })} step=".01" type="number" value={item.vat_rate ?? ""} /></Field>
+          <Field label={t({ fr: "TVA %", en: "VAT %", es: "IVA %", it: "IVA %" })}><input className="admin-input" max="99.99" min="0" onChange={(event) => void onUpdate(item, { vat_rate: event.target.value === "" ? 0 : Number(event.target.value) })} step=".01" type="number" value={item.vat_rate ?? 0} /></Field>
           <Field label={t({ fr: "Quantité max.", en: "Maximum quantity", es: "Cantidad máxima", it: "Quantità massima" })}><input className="admin-input" min="0" onChange={(event) => void onUpdate(item, { max_quantity_per_order: Number(event.target.value) })} type="number" value={item.max_quantity_per_order} /></Field>
           <Field label={t({ fr: "Ordre", en: "Display order", es: "Orden de visualización", it: "Ordine di visualizzazione" })}><input className="admin-input" min="0" onChange={(event) => void onUpdate(item, { display_order: Number(event.target.value) })} type="number" value={item.display_order} /></Field>
         </div>
@@ -153,17 +149,16 @@ function TakeawayItemCard({ groups, item, lang, links, onOrderLink, onToggleLink
 }
 
 function CandidateItemCard({ item, onUpdate, t }: { item: MenuItem; onUpdate: (item: MenuItem, values: Partial<MenuItem>) => Promise<void>; t: Translate }) {
-  const ready = item.vat_rate != null;
   return (
     <article className="rounded-xl border border-white/10 bg-black/20 p-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><strong className="break-words text-white/90">{item.name}</strong><Availability available={item.available} t={t} /></div><p className="mt-1 text-xs text-white/35">{item.category}</p><p className={`mt-3 text-xs font-semibold uppercase tracking-wider ${ready ? "text-[#9dd4b5]" : "text-amber-200"}`}>{ready ? t({ fr: "Prêt", en: "Ready", es: "Listo", it: "Pronto" }) : t({ fr: "Non prêt", en: "Not ready", es: "No listo", it: "Non pronto" })}</p></div>
+        <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><strong className="break-words text-white/90">{item.name}</strong><Availability available={item.available} t={t} /></div><p className="mt-1 text-xs text-white/35">{item.category}</p></div>
         <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end lg:w-[30rem]">
-          <Field label={t({ fr: "TVA %", en: "VAT %", es: "IVA %", it: "IVA %" })}><input aria-label={t({ fr: `TVA pour ${item.name}`, en: `VAT for ${item.name}`, es: `IVA para ${item.name}`, it: `IVA per ${item.name}` })} className="admin-input" max="99.99" min="0" onChange={(event) => void onUpdate(item, { vat_rate: event.target.value === "" ? null : Number(event.target.value) })} placeholder={t({ fr: "Non configurée", en: "Not configured", es: "No configurado", it: "Non configurata" })} step=".01" type="number" value={item.vat_rate ?? ""} /></Field>
-          <button className="min-h-10 rounded-lg border border-[#7CB895]/35 bg-[#7CB895]/10 px-4 py-2 text-sm font-medium text-[#9dd4b5] transition hover:bg-[#7CB895]/15 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/[.03] disabled:text-white/25" disabled={!ready} onClick={() => void onUpdate(item, { takeaway_available: true })} type="button">{t({ fr: "Ajouter au Takeaway", en: "Add to Takeaway", es: "Añadir a Takeaway", it: "Aggiungi al Takeaway" })}</button>
+          <Field label={t({ fr: "TVA %", en: "VAT %", es: "IVA %", it: "IVA %" })}><input aria-label={t({ fr: `TVA pour ${item.name}`, en: `VAT for ${item.name}`, es: `IVA para ${item.name}`, it: `IVA per ${item.name}` })} className="admin-input" max="99.99" min="0" onChange={(event) => void onUpdate(item, { vat_rate: event.target.value === "" ? 0 : Number(event.target.value) })} step=".01" type="number" value={item.vat_rate ?? 0} /></Field>
+          <button className="min-h-10 rounded-lg border border-[#7CB895]/35 bg-[#7CB895]/10 px-4 py-2 text-sm font-medium text-[#9dd4b5] transition hover:bg-[#7CB895]/15" onClick={() => void onUpdate(item, { takeaway_available: true })} type="button">{t({ fr: "Ajouter au Takeaway", en: "Add to Takeaway", es: "Añadir a Takeaway", it: "Aggiungi al Takeaway" })}</button>
         </div>
       </div>
-      <div className="mt-4 border-t border-white/8 pt-3 text-sm"><p className={ready ? "text-white/50" : "text-amber-100/70"}>{ready ? t({ fr: `TVA ${item.vat_rate}% configurée.`, en: `VAT ${item.vat_rate}% configured.`, es: `IVA ${item.vat_rate}% configurado.`, it: `IVA ${item.vat_rate}% configurata.` }) : t({ fr: "La TVA doit être configurée avant que cet article puisse être activé pour le Takeaway.", en: "VAT must be configured before this item can be enabled for Takeaway.", es: "El IVA debe configurarse antes de poder activar este artículo para Takeaway.", it: "L’IVA deve essere configurata prima di poter abilitare questo articolo per il Takeaway." })}</p></div>
+      <div className="mt-4 border-t border-white/8 pt-3 text-sm"><p className="text-white/50">{t({ fr: `TVA ${item.vat_rate ?? 0}%`, en: `VAT ${item.vat_rate ?? 0}%`, es: `IVA ${item.vat_rate ?? 0}%`, it: `IVA ${item.vat_rate ?? 0}%` })}</p></div>
     </article>
   );
 }

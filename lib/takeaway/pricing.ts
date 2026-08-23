@@ -5,6 +5,10 @@ export const fromCents = (value: number) => Number((value / 100).toFixed(2));
 
 export interface PriceComponent { cents: number; vatRate: number }
 
+export function resolveVatRate(parentRate: number | string, override: number | string | null | undefined) {
+  return Number(override ?? parentRate);
+}
+
 export function calculateUnitPrice(basePrice: number | string, modifiers: (number | string)[]) {
   return Math.max(0, toCents(basePrice) + modifiers.reduce<number>((sum, value) => sum + toCents(value), 0));
 }

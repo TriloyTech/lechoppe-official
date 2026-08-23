@@ -3,45 +3,28 @@
 
 BEGIN;
 
--- Existing catalog extensions. VAT remains unclassified until explicitly set,
--- and products remain ineligible until an administrator opts them in.
+-- Existing catalog extensions. VAT defaults to the valid 0% rate, while
+-- products remain ineligible until an administrator opts them in.
 ALTER TABLE menu_items
-  ADD COLUMN IF NOT EXISTS vat_rate numeric(4,2) DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS vat_rate numeric(4,2) NOT NULL DEFAULT 0.00,
   ADD COLUMN IF NOT EXISTS max_quantity_per_order integer NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS display_order integer NOT NULL DEFAULT 0;
 
 ALTER TABLE menu_items
-  ALTER COLUMN vat_rate DROP NOT NULL,
-  ALTER COLUMN vat_rate DROP DEFAULT,
   ALTER COLUMN takeaway_available SET DEFAULT false;
-
--- This constraint also acts as the one-time marker for upgrading databases
--- that received the earlier unsafe Phase 1 defaults. Once present, rerunning
--- the migration does not erase later administrator configuration.
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint
-    WHERE conname = 'chk_menu_items_takeaway_requires_vat'
-      AND conrelid = 'menu_items'::regclass
-  ) THEN
-    UPDATE menu_items
-    SET takeaway_available = false,
-        vat_rate = NULL;
-
-    UPDATE site_settings
-    SET value = jsonb_set(value, '{takeaway_enabled}', 'false'::jsonb, true),
-        updated_at = now()
-    WHERE key = 'takeaway_settings';
-  END IF;
-END $$;
 
 UPDATE menu_items
 SET takeaway_available = false
 WHERE takeaway_available IS NULL;
 
+UPDATE menu_items
+SET vat_rate = 0.00
+WHERE vat_rate IS NULL;
+
 ALTER TABLE menu_items
-  ALTER COLUMN takeaway_available SET NOT NULL;
+  ALTER COLUMN takeaway_available SET NOT NULL,
+  ALTER COLUMN vat_rate SET DEFAULT 0.00,
+  ALTER COLUMN vat_rate SET NOT NULL;
 
 ALTER TABLE offers
   ADD COLUMN IF NOT EXISTS takeaway_eligible boolean NOT NULL DEFAULT false;
@@ -55,7 +38,7 @@ BEGIN
   ) THEN
     ALTER TABLE menu_items
       ADD CONSTRAINT chk_menu_items_vat_rate
-      CHECK (vat_rate IS NULL OR (vat_rate >= 0 AND vat_rate < 100));
+      CHECK (vat_rate >= 0 AND vat_rate < 100);
   END IF;
 
   IF NOT EXISTS (
@@ -78,15 +61,6 @@ BEGIN
       CHECK (display_order >= 0);
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint
-    WHERE conname = 'chk_menu_items_takeaway_requires_vat'
-      AND conrelid = 'menu_items'::regclass
-  ) THEN
-    ALTER TABLE menu_items
-      ADD CONSTRAINT chk_menu_items_takeaway_requires_vat
-      CHECK (NOT takeaway_available OR vat_rate IS NOT NULL);
-  END IF;
 END $$;
 
 CREATE TABLE IF NOT EXISTS takeaway_option_groups (

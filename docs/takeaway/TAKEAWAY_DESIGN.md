@@ -103,7 +103,7 @@ Requirements:
 - active category is unmistakable
 - horizontally scrollable pills on mobile
 - sticky when useful
-- inactive categories are hidden
+- category navigation is derived from Takeaway-enabled items, so empty categories are hidden while every enabled item's category remains reachable
 - labels support FR / EN / ES / IT
 
 ---
@@ -833,7 +833,7 @@ Show:
 - normal availability
 - option configuration
 
-Missing VAT or invalid configuration should be obvious.
+VAT should display its numeric value, including the valid default `0%`; invalid out-of-range configuration should be obvious.
 
 ### Option groups
 

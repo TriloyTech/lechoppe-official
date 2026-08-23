@@ -23,6 +23,7 @@ function stripMigrationTransaction(sql: string) {
 const takeawayMigrationBody = stripMigrationTransaction(takeawayMigrationSQL);
 const takeawayLocalizationBody = stripMigrationTransaction(readFileSync(join(process.cwd(), "db/init/003_takeaway_category_localization.sql"), "utf8"));
 const takeawayReviewFixesBody = stripMigrationTransaction(readFileSync(join(process.cwd(), "db/init/004_takeaway_review_fixes.sql"), "utf8"));
+const menuItemVatDefaultBody = stripMigrationTransaction(readFileSync(join(process.cwd(), "db/init/005_menu_item_vat_default.sql"), "utf8"));
 
 const setupSQL = `
 ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS has_allergens boolean DEFAULT false;
@@ -62,6 +63,7 @@ export async function POST(req: Request) {
       await client.query(takeawayMigrationBody);
       await client.query(takeawayLocalizationBody);
       await client.query(takeawayReviewFixesBody);
+      await client.query(menuItemVatDefaultBody);
       await client.query("COMMIT");
     } catch (error) {
       await client.query("ROLLBACK").catch(() => undefined);

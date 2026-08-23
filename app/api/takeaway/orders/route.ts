@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { PoolClient } from "pg";
 import { pool } from "@/lib/postgres/db";
 import { type LocalizedText, type TakeawaySettings } from "@/lib/takeaway/types";
-import { applyDiscountToVatBreakdown, calculateUnitPrice, calculateVatBreakdown, fromCents, mergeVatBreakdowns, toCents } from "@/lib/takeaway/pricing";
+import { applyDiscountToVatBreakdown, calculateUnitPrice, calculateVatBreakdown, fromCents, mergeVatBreakdowns, resolveVatRate, toCents } from "@/lib/takeaway/pricing";
 import { generateCandidateReference, generateTrackingToken, hashTrackingToken, MAX_REFERENCE_ATTEMPTS } from "@/lib/takeaway/security";
 import { classifyPickupSlots, generateSlots } from "@/lib/takeaway/slots";
 import { customerContactRateLimitIdentity, parseOrderPayload } from "@/lib/takeaway/validation";
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     if (body.pickup_time_type === "asap" && selectedSlot.type !== "asap") throw new Error("ASAP must use the earliest available slot");
     const itemIds = [...new Set(body.items.map((line) => line.item_id))]; const choiceIds = [...new Set(body.items.flatMap((line) => line.choice_ids))];
     const [itemsResult, choicesResult, linksResult] = await Promise.all([
-      client.query("SELECT id, name, description, price, vat_rate, max_quantity_per_order FROM menu_items WHERE id = ANY($1::uuid[]) AND available AND takeaway_available AND vat_rate IS NOT NULL FOR SHARE", [itemIds]),
+      client.query("SELECT id, name, description, price, vat_rate, max_quantity_per_order FROM menu_items WHERE id = ANY($1::uuid[]) AND available AND takeaway_available FOR SHARE", [itemIds]),
       choiceIds.length ? client.query("SELECT c.id, c.group_id, c.name, c.price_modifier, c.vat_rate_override, c.is_available, g.name AS group_name, g.selection_type, g.min_selections, g.max_selections, g.is_required, g.is_active FROM takeaway_option_choices c JOIN takeaway_option_groups g ON g.id = c.group_id WHERE c.id = ANY($1::uuid[]) FOR SHARE OF c, g", [choiceIds]) : Promise.resolve({ rows: [] }),
       client.query("SELECT link.item_id, link.group_id, g.selection_type, g.min_selections, g.max_selections, g.is_required, g.is_active FROM menu_item_option_groups link JOIN takeaway_option_groups g ON g.id = link.group_id WHERE link.item_id = ANY($1::uuid[]) FOR SHARE OF link, g", [itemIds]),
     ]);
@@ -66,8 +66,8 @@ export async function POST(request: NextRequest) {
       const item = itemMap.get(line.item_id); if (!item) throw new Error("Item unavailable"); quantityByItem.set(item.id, (quantityByItem.get(item.id) ?? 0) + line.quantity);
       const linkedGroups = groupsByItem.get(item.id) ?? []; const selectedChoices = line.choice_ids.map((id) => choiceMap.get(id)); validateOptionSelections(linkedGroups, selectedChoices);
       const unitCents = calculateUnitPrice(item.price, selectedChoices.map((choice) => choice.price_modifier)); const lineCents = unitCents * line.quantity; subtotalCents += lineCents;
-      const components = [{ cents: toCents(item.price), vatRate: Number(item.vat_rate) }, ...selectedChoices.map((choice) => ({ cents: toCents(choice.price_modifier), vatRate: Number(choice.vat_rate_override ?? item.vat_rate) }))]; const lineVat = calculateVatBreakdown(components, line.quantity, unitCents); vatEntries.push(...lineVat);
-      snapshotItems.push({ item_id: item.id, name: item.name, description: item.description, base_price: Number(item.price), vat_rate: Number(item.vat_rate), quantity: line.quantity, special_instructions: String(line.special_instructions ?? "").trim(), selected_options: selectedChoices.map((choice) => ({ group_name: choice.group_name as LocalizedText, choice_name: choice.name as LocalizedText, price_modifier: Number(choice.price_modifier), vat_rate: Number(choice.vat_rate_override ?? item.vat_rate) })), unit_price_ttc: fromCents(unitCents), line_total_ttc: fromCents(lineCents) });
+      const components = [{ cents: toCents(item.price), vatRate: Number(item.vat_rate) }, ...selectedChoices.map((choice) => ({ cents: toCents(choice.price_modifier), vatRate: resolveVatRate(item.vat_rate, choice.vat_rate_override) }))]; const lineVat = calculateVatBreakdown(components, line.quantity, unitCents); vatEntries.push(...lineVat);
+      snapshotItems.push({ item_id: item.id, name: item.name, description: item.description, base_price: Number(item.price), vat_rate: Number(item.vat_rate), quantity: line.quantity, special_instructions: String(line.special_instructions ?? "").trim(), selected_options: selectedChoices.map((choice) => ({ group_name: choice.group_name as LocalizedText, choice_name: choice.name as LocalizedText, price_modifier: Number(choice.price_modifier), vat_rate: resolveVatRate(item.vat_rate, choice.vat_rate_override) })), unit_price_ttc: fromCents(unitCents), line_total_ttc: fromCents(lineCents) });
     }
     for (const [itemId, quantity] of quantityByItem) validateBusinessQuantity(Number(itemMap.get(itemId).max_quantity_per_order), quantity);
     let discountCents = 0; let promoCode: string | null = null; if (body.promo_code) {

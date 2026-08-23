@@ -1,12 +1,6 @@
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/postgres/db";
-
-const FALLBACK_CATEGORIES = [
-  { key: "burger", emoji: "🍔", fr: "Burgers & Plats", en: "Burgers & Mains", es: "Hamburguesas y platos", it: "Burger e piatti", is_active: true, display_order: 0 },
-  { key: "side", emoji: "🥗", fr: "Entrées & Accompagnements", en: "Starters & Sides", es: "Entrantes y guarniciones", it: "Antipasti e contorni", is_active: true, display_order: 1 },
-  { key: "dessert", emoji: "🍮", fr: "Desserts", en: "Desserts", es: "Postres", it: "Dolci", is_active: true, display_order: 2 },
-  { key: "drink", emoji: "🥂", fr: "Boissons", en: "Drinks", es: "Bebidas", it: "Bevande", is_active: true, display_order: 3 },
-];
+import { takeawayCategoriesFromItems } from "@/lib/takeaway/categoryPresentation";
 
 export const dynamic = "force-dynamic";
 
@@ -30,15 +24,13 @@ export async function GET() {
         FROM menu_items m
         LEFT JOIN menu_item_option_groups link ON link.item_id = m.id
         LEFT JOIN takeaway_option_groups g ON g.id = link.group_id AND g.is_active
-        WHERE m.takeaway_available = true AND m.vat_rate IS NOT NULL
+        WHERE m.takeaway_available = true
         GROUP BY m.id
         ORDER BY m.category, m.display_order, m.name`),
     ]);
-    const rawCategories = Array.isArray(categoriesResult.rows[0]?.value) ? categoriesResult.rows[0].value : FALLBACK_CATEGORIES;
-    const configuredKeys = new Set(rawCategories.filter((category: { key?: string; is_active?: boolean }) => category.is_active !== false && category.key).map((category: { key: string }) => category.key));
-    const items = itemsResult.rows.filter((item) => configuredKeys.has(item.category));
-    const eligibleKeys = new Set(items.map((item) => item.category));
-    const categories = rawCategories.filter((category: { key?: string; is_active?: boolean }) => category.is_active !== false && category.key && eligibleKeys.has(category.key)).sort((a: { display_order?: number }, b: { display_order?: number }) => (a.display_order ?? 0) - (b.display_order ?? 0));
+    const rawCategories = Array.isArray(categoriesResult.rows[0]?.value) ? categoriesResult.rows[0].value : [];
+    const items = itemsResult.rows;
+    const categories = takeawayCategoriesFromItems(items, rawCategories);
     return NextResponse.json({ categories, items });
   } catch {
     return NextResponse.json({ categories: [], items: [], unavailable: true }, { status: 503 });

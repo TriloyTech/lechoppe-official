@@ -190,6 +190,7 @@ type MenuDraft = {
   available: boolean;
   chef_suggestion: boolean;
   takeaway_available: boolean;
+  vat_rate: string;
   image_url: string;
   has_allergens: boolean;
   allergens_text: string;
@@ -209,7 +210,7 @@ function getCategoryLabel(dbVal: string): string {
 const EMPTY_DRAFT: MenuDraft = {
   name: "", description: "", price: "", category: "burger",
   available: true, chef_suggestion: false, takeaway_available: false, image_url: "",
-  has_allergens: false, allergens_text: "",
+  has_allergens: false, allergens_text: "", vat_rate: "0",
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -256,6 +257,7 @@ function MenuItemModal({
           available: item.available ?? true,
           chef_suggestion: item.chef_suggestion ?? false,
           takeaway_available: item.takeaway_available ?? false,
+          vat_rate: String(item.vat_rate ?? 0),
           image_url: item.image_url ?? "",
           has_allergens: item.has_allergens ?? false,
           allergens_text: item.allergens_text ?? "",
@@ -304,8 +306,9 @@ function MenuItemModal({
   const handleSave = async () => {
     setErr("");
     const p = parseFloat(draft.price);
-    if (!draft.name.trim() || isNaN(p) || p < 0) {
-      setErr(t({ fr: "Veuillez remplir correctement les champs obligatoires (Nom, Prix).", en: "Please fill required fields properly (Name, Price).", es: "Complete correctamente los campos obligatorios (Nombre, Precio).", it: "Compilare correttamente i campi obbligatori (Nome, Prezzo)." }));
+    const vatRate = Number(draft.vat_rate);
+    if (!draft.name.trim() || isNaN(p) || p < 0 || !Number.isFinite(vatRate) || vatRate < 0 || vatRate >= 100) {
+      setErr(t({ fr: "Vérifiez le nom, le prix et la TVA (de 0 à moins de 100).", en: "Check the name, price, and VAT (0 to less than 100).", es: "Comprueba el nombre, el precio y el IVA (de 0 a menos de 100).", it: "Controlla nome, prezzo e IVA (da 0 a meno di 100)." }));
       return;
     }
     setSaving(true);
@@ -318,6 +321,7 @@ function MenuItemModal({
         available:        draft.available,
         chef_suggestion:  draft.chef_suggestion,
         takeaway_available: draft.takeaway_available,
+        vat_rate:          vatRate,
         image_url:        draft.image_url.trim() || null,
         has_allergens:    draft.has_allergens,
         allergens_text:   draft.allergens_text.trim() || null,
@@ -373,6 +377,11 @@ function MenuItemModal({
           </div>
 
           <div>
+            <label className="block text-[0.6rem] tracking-widest uppercase text-white/40 mb-1.5">{t({ fr: "TVA (%)", en: "VAT (%)", es: "IVA (%)", it: "IVA (%)" })}</label>
+            <input type="number" min="0" max="99.99" step="0.01" value={draft.vat_rate} onChange={(e) => setDraft({ ...draft, vat_rate: e.target.value })} className={inputCls} />
+          </div>
+
+          <div>
             <label className="block text-[0.6rem] tracking-widest uppercase text-white/40 mb-1.5">{t({ fr: "URL de l'image", en: "Image URL", es: "URL de la imagen", it: "URL dell'immagine" })}</label>
             <div className="flex gap-2">
               <input value={draft.image_url} onChange={(e) => setDraft({ ...draft, image_url: e.target.value })} className={inputCls} placeholder="https://..." />
@@ -413,7 +422,7 @@ function MenuItemModal({
             </label>
 
             <label className="flex items-center gap-3 cursor-pointer">
-              <div onClick={() => { if (!draft.takeaway_available && item?.vat_rate == null) { setErr(t({ fr: "Attribuez d’abord la TVA dans le panneau Takeaway.", en: "Assign VAT in the Takeaway panel first.", es: "Asigne primero el IVA en el panel Takeaway.", it: "Assegna prima l’IVA nel pannello Asporto." })); return; } setDraft((p) => ({ ...p, takeaway_available: !p.takeaway_available })); }} className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${draft.takeaway_available ? "bg-[#D4AF37]" : "bg-white/10"}`}>
+              <div onClick={() => setDraft((p) => ({ ...p, takeaway_available: !p.takeaway_available }))} className={`relative w-10 h-5 rounded-full transition-colors duration-300 ${draft.takeaway_available ? "bg-[#D4AF37]" : "bg-white/10"}`}>
                 <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-300 ${draft.takeaway_available ? "translate-x-5" : "translate-x-0.5"}`} />
               </div>
               <span className="text-sm text-white/60">🛍️ {t({ fr: "À emporter", en: "Takeaway", es: "Para llevar", it: "Da asporto" })}</span>

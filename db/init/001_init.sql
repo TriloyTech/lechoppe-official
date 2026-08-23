@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS menu_items (
   category text NOT NULL DEFAULT 'burger',
   available boolean DEFAULT true,
   chef_suggestion boolean NOT NULL DEFAULT false,
-  takeaway_available boolean DEFAULT true,
+  takeaway_available boolean NOT NULL DEFAULT false,
   image_url text,
   has_allergens boolean DEFAULT false,
   allergens_text text DEFAULT '',
@@ -93,4 +93,3 @@ CREATE TRIGGER update_menu_items_updated_at
     BEFORE UPDATE ON menu_items
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
-

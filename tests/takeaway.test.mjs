@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyDiscountToVatBreakdown, calculateUnitPrice, calculateVatBreakdown, mergeVatBreakdowns, toCents } from "../lib/takeaway/pricing.ts";
+import { applyDiscountToVatBreakdown, calculateUnitPrice, calculateVatBreakdown, mergeVatBreakdowns, resolveVatRate, toCents } from "../lib/takeaway/pricing.ts";
 import { createBotChallenge, generateCandidateReference, generateTrackingToken, hashTrackingToken, isTrackingToken, verifyBotChallenge } from "../lib/takeaway/security.ts";
 import { classifyPickupSlots, formatParisDateTimeLocal, generateSlots, isValidPickupTime, parisLocalDateTimeToUtc } from "../lib/takeaway/slots.ts";
 import { renderOrderConfirmation } from "../lib/email/templates/OrderConfirmationEmail.ts";
@@ -13,7 +13,7 @@ import { customerContactRateLimitIdentity, normalizeCustomerPhone } from "../lib
 import { buildAdminOrderEditPatch, createAdminOrderEditDraft } from "../lib/takeaway/adminOrderEdit.ts";
 import { isTakeawayItemActionable } from "../lib/takeaway/menuEligibility.ts";
 import { buildAdminOfferPayload, createAdminOfferDraft } from "../lib/takeaway/adminOffer.ts";
-import { activeCategories, categoryLabel, visibleMenuItems } from "../lib/takeaway/categoryPresentation.ts";
+import { activeCategories, categoryLabel, takeawayCategoriesFromItems, visibleMenuItems } from "../lib/takeaway/categoryPresentation.ts";
 import { appendCreated, removeById, removeGroupChoices } from "../lib/takeaway/optionDraftState.ts";
 import { normalizePromoCode, validatePromotionRecord } from "../lib/takeaway/promotions.ts";
 
@@ -56,6 +56,17 @@ test("shared menu categories localize, order, hide inactive sections, and fall b
   assert.equal(categoryLabel({ key: "fallback" }, "it", "fallback"), "fallback");
 });
 
+test("Takeaway categories derive from enabled item category values without metadata gating", () => {
+  const metadata = [{ key: "burger", emoji: "🍔", fr: "Burgers", en: "Burgers", es: "Hamburguesas", it: "Burger", is_active: false, display_order: 2 }];
+  const derived = takeawayCategoriesFromItems([{ category: "burger" }, { category: "classique" }, { category: "boisson" }, { category: "chef_special" }, { category: "burger" }], metadata);
+  assert.deepEqual(new Set(derived.map((category) => category.key)), new Set(["burger", "classique", "boisson", "chef_special"]));
+  assert.equal(derived.find((category) => category.key === "burger").fr, "Burgers");
+  assert.equal(derived.find((category) => category.key === "burger").is_active, true);
+  assert.equal(derived.find((category) => category.key === "classique").fr, "Classique");
+  assert.equal(derived.find((category) => category.key === "chef_special").en, "Chef special");
+  assert.equal(derived.some((category) => category.key === "empty"), false);
+});
+
 test("option group CRUD helpers preserve unrelated unsaved drafts", () => {
   const dirtyGroup = { id: "a", name: { es: "Borrador sin guardar" } };
   const groups = appendCreated([dirtyGroup, { id: "b", name: { es: "Grupo B" } }], { id: "c", name: { es: "Grupo C" } });
@@ -82,6 +93,13 @@ test("pricing accepts modifiers, promotions, multiple VAT tiers, and reconciles 
   assert.equal(calculateUnitPrice(10, [2]), 1200); assert.equal(calculateUnitPrice(10, [0]), 1000); assert.equal(calculateUnitPrice(10, [-2]), 800); assert.equal(calculateUnitPrice(1, [-2]), 0);
   const one = applyDiscountToVatBreakdown(calculateVatBreakdown([{ cents: 1001, vatRate: 10 }], 1, 1001), 1001, 851); assert.equal(one.reduce((sum, row) => sum + toCents(row.base_ht) + toCents(row.vat_amount), 0), 851);
   const multiple = mergeVatBreakdowns([...calculateVatBreakdown([{ cents: 1001, vatRate: 5.5 }], 1, 1001), ...calculateVatBreakdown([{ cents: 999, vatRate: 20 }], 1, 999)]); const final = 1667; const discounted = applyDiscountToVatBreakdown(multiple, 2000, final); assert.equal(discounted.reduce((sum, row) => sum + toCents(row.base_ht) + toCents(row.vat_amount), 0), final); assert.equal(percentageDiscountCents(2000, 16.65), 333); assert.throws(() => percentageDiscountCents(1000, 120), /Invalid promotion/); assert.throws(() => requireEligiblePromotion(null), /Invalid promotion/); assert.equal(requireEligiblePromotion({ code: "TAKEAWAY", discount: "15" }).discount, 15);
+});
+
+test("VAT 0 is valid and nullable option overrides continue to inherit", () => {
+  assert.deepEqual(calculateVatBreakdown([{ cents: 1_000, vatRate: 0 }], 1, 1_000), [{ rate: 0, base_ht: 10, vat_amount: 0 }]);
+  assert.equal(resolveVatRate(20, null), 20);
+  assert.equal(resolveVatRate(20, 0), 0);
+  assert.equal(resolveVatRate(20, 5.5), 5.5);
 });
 
 test("customer-safe promotion validation distinguishes every supported state", () => {
