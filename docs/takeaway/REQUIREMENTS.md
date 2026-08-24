@@ -2,7 +2,7 @@
 
 **Document Status:** Fully Specified & Business Aligned  
 **Target Repository:** `lechoppe-official`  
-**Governing Standard:** [AGENTS.md](file:///Users/mahabubul.hasan/Desktop/project/TriloyTech/lechoppe-official/AGENTS.md)
+**Governing Standard:** [AGENTS.md]
 
 ---
 
