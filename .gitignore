@@ -55,5 +55,9 @@ check_bbox.js
 test_supabase.js
 scripts/
 .env.vercel.test
-proxy.ts
 test.jpg
+
+# ── Database backups ──
+backups/
+
+

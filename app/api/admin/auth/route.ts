@@ -11,10 +11,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const isHttps = req.nextUrl.protocol === "https:" || req.headers.get("x-forwarded-proto") === "https";
     const response = NextResponse.json({ ok: true });
     response.cookies.set(ADMIN_COOKIE_NAME, createAdminSessionToken(), {
       httpOnly: true,
-      secure:   process.env.NODE_ENV === "production",
+      secure:   isHttps,
       sameSite: "lax",
       maxAge:   ADMIN_SESSION_MAX_AGE,
       path:     "/",

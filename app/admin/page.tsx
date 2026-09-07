@@ -1219,6 +1219,13 @@ export default function AdminDashboard() {
       document.body.style.overflow = "";
     };
   }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    (window as any).lenis?.stop();
+    return () => {
+      (window as any).lenis?.start();
+    };
+  }, []);
   
   // Modal states
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
@@ -1400,15 +1407,17 @@ export default function AdminDashboard() {
             />
 
             {/* Mobile Drawer panel */}
+            {/* Mobile Drawer panel */}
             <motion.aside
               key="admin-drawer"
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              data-lenis-prevent="true"
               className="fixed top-0 left-0 bottom-0 z-50 w-[75vw] max-w-xs bg-[#0A0A0A] border-r border-white/5 flex flex-col pt-16 md:hidden"
             >
-              <div className="p-4 flex-1 overflow-y-auto space-y-6">
+              <div data-lenis-prevent="true" className="p-4 flex-1 min-h-0 overflow-y-auto space-y-6 overscroll-contain scrollbar-thin">
                 <nav className="space-y-1">
                   <div className="text-[0.65rem] text-white/20 uppercase tracking-widest mb-3 px-4 font-semibold">Général</div>
                   <SidebarItem icon="📊" label={t({ fr: "Tableau de bord", en: "Dashboard", es: "Panel de Control", it: "Pannello di Controllo" })} tab="dashboard" />
@@ -1425,7 +1434,7 @@ export default function AdminDashboard() {
                 </nav>
               </div>
 
-              <div className="p-4 border-t border-white/5 space-y-2">
+              <div className="p-4 border-t border-white/5 space-y-2 shrink-0">
                 <AdminLangDropdown />
                 <button 
                   onClick={() => {
@@ -1444,15 +1453,15 @@ export default function AdminDashboard() {
       </AnimatePresence>
 
       {/* ── WordPress-style Left Sidebar ── */}
-      <aside className="hidden md:flex w-64 bg-[#0A0A0A] border-r border-white/5 flex flex-col h-screen sticky top-0 shrink-0">
-        <div className="p-6">
+      <aside data-lenis-prevent="true" className="hidden md:flex w-64 bg-[#0A0A0A] border-r border-white/5 flex flex-col h-screen max-h-screen sticky top-0 shrink-0">
+        <div className="p-6 shrink-0">
           <div className="flex items-center gap-3 mb-1">
             <img src="/images/logo-full-brand.png" alt="L'Échoppe Logo" className="h-8 object-contain" />
           </div>
           <p className="text-[0.6rem] text-white/30 uppercase tracking-[0.2em] mt-2">Admin Portal</p>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-4 py-2 space-y-1">
+        <nav data-lenis-prevent="true" className="flex-1 min-h-0 overflow-y-auto px-4 py-2 space-y-1 overscroll-contain scrollbar-thin">
           <div className="text-[0.65rem] text-white/20 uppercase tracking-widest mb-3 px-4 mt-2 font-semibold">Général</div>
           <SidebarItem icon="📊" label={t({ fr: "Tableau de bord", en: "Dashboard", es: "Panel de Control", it: "Pannello di Controllo" })} tab="dashboard" />
           <SidebarItem icon="📅" label={t({ fr: "Réservations", en: "Reservations", es: "Reservas", it: "Prenotazioni" })} tab="reservations" />
@@ -1467,7 +1476,7 @@ export default function AdminDashboard() {
           <SidebarItem icon="✏️" label={t({ fr: "Contenu & Infos", en: "Content & Info", es: "Contenido e Info", it: "Contenuti e Info" })} tab="content" />
         </nav>
 
-        <div className="p-4 border-t border-white/5 space-y-2">
+        <div className="p-4 border-t border-white/5 space-y-2 shrink-0">
           <AdminLangDropdown />
           
           <button 
