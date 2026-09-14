@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pool, assertAllowedTable } from "@/lib/postgres/db";
 import { isAdminRequest } from "@/lib/admin/auth";
+import { logServerError } from "@/lib/server/logError";
 
 const PUBLIC_READ_TABLES = new Set(["menu_items", "offers", "site_settings"]);
 const GENERIC_DB_BLOCKED_TABLES = new Set(["takeaway_orders", "takeaway_order_events"]);
@@ -134,7 +135,8 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     const result = await pool.query(sql, where.values);
     return NextResponse.json({ data: single ? (result.rows[0] ?? null) : result.rows, error: null });
   } catch (err) {
-    return NextResponse.json({ data: null, error: err instanceof Error ? err.message : String(err) }, { status: 500 });
+    logServerError("api.db.get", err);
+    return NextResponse.json({ data: null, error: "Server error" }, { status: 500 });
   }
 }
 
@@ -179,7 +181,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     }
     return NextResponse.json({ data: Array.isArray(body) ? inserted : inserted[0], error: null });
   } catch (err) {
-    return NextResponse.json({ data: null, error: err instanceof Error ? err.message : String(err) }, { status: 500 });
+    logServerError("api.db.post", err);
+    return NextResponse.json({ data: null, error: "Server error" }, { status: 500 });
   }
 }
 
@@ -210,7 +213,8 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     const result = await pool.query(`UPDATE "${table}" SET ${setSql}${where.sql} RETURNING *`, [...values, ...where.values]);
     return NextResponse.json({ data: result.rows, error: null });
   } catch (err) {
-    return NextResponse.json({ data: null, error: err instanceof Error ? err.message : String(err) }, { status: 500 });
+    logServerError("api.db.patch", err);
+    return NextResponse.json({ data: null, error: "Server error" }, { status: 500 });
   }
 }
 
@@ -229,6 +233,7 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
     const result = await pool.query(`DELETE FROM "${table}"${where.sql} RETURNING *`, where.values);
     return NextResponse.json({ data: result.rows, error: null });
   } catch (err) {
-    return NextResponse.json({ data: null, error: err instanceof Error ? err.message : String(err) }, { status: 500 });
+    logServerError("api.db.delete", err);
+    return NextResponse.json({ data: null, error: "Server error" }, { status: 500 });
   }
 }

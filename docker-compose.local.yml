@@ -25,7 +25,7 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "3000:3000"
+      - "${LECHOPPE_HTTP_PORT:-4321}:3000"
     env_file:
       - .env
     environment:
