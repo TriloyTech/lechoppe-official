@@ -49,3 +49,26 @@ test('settings reject header injection, allow explicit clearing, and test rate l
  assert.equal((await settings.PUT(request('/api/admin/check','PUT',{recipient:''},true))).status,200);assert.equal(JSON.parse(calls.at(-1).args[1]).recipient,'');
  const endpoint=load('app/api/admin/reservation-notifications/test/route.ts');assert.equal((await endpoint.POST(request('/api/admin/check','POST',{},true))).status,429);
 });
+test('settings accept the local external port while Next runs on the container port',async()=>{
+ const settings=load('app/api/admin/reservation-notifications/route.ts');
+ const req=new NextRequest('http://localhost:3000/api/admin/reservation-notifications',{method:'PUT',headers:{origin:'http://localhost:4321',host:'localhost:4321','sec-fetch-site':'same-origin',cookie:`lechoppe_admin_auth=${auth.createAdminSessionToken()}`,'content-type':'application/json'},body:JSON.stringify({recipient:'lechoppe.restaurant@gmail.com'})});
+ assert.equal((await settings.PUT(req)).status,200);
+});
+test('settings accept a trusted production HTTPS origin and ignore untrusted forwarding headers',async()=>{
+ const settings=load('app/api/admin/reservation-notifications/route.ts');
+ const previous=process.env.TRUST_PROXY_HEADERS; process.env.TRUST_PROXY_HEADERS='true';
+ try {
+  const valid=new NextRequest('http://localhost:3000/api/admin/reservation-notifications',{method:'PUT',headers:{origin:'https://lechoppe.example',host:'localhost:3000','x-forwarded-host':'lechoppe.example','x-forwarded-proto':'https','sec-fetch-site':'same-origin',cookie:`lechoppe_admin_auth=${auth.createAdminSessionToken()}`,'content-type':'application/json'},body:JSON.stringify({recipient:'lechoppe.restaurant@gmail.com'})});
+  assert.equal((await settings.PUT(valid)).status,200);
+  process.env.TRUST_PROXY_HEADERS='false';
+  const crossForwarded=new NextRequest('http://localhost:3000/api/admin/reservation-notifications',{method:'PUT',headers:{origin:'https://lechoppe.example',host:'localhost:3000','x-forwarded-host':'lechoppe.example','x-forwarded-proto':'https','sec-fetch-site':'same-origin',cookie:`lechoppe_admin_auth=${auth.createAdminSessionToken()}`,'content-type':'application/json'},body:JSON.stringify({recipient:'lechoppe.restaurant@gmail.com'})});
+  assert.equal((await settings.PUT(crossForwarded)).status,403);
+ } finally { if(previous===undefined)delete process.env.TRUST_PROXY_HEADERS; else process.env.TRUST_PROXY_HEADERS=previous; }
+});
+test('settings reject invalid email, cross-site mutations, and unauthenticated mutations',async()=>{
+ const settings=load('app/api/admin/reservation-notifications/route.ts');
+ const make=(headers,body={recipient:'bad'})=>new NextRequest('http://localhost:3000/api/admin/reservation-notifications',{method:'PUT',headers:{origin:'http://localhost:4321',host:'localhost:4321','sec-fetch-site':'same-origin',...headers,'content-type':'application/json'},body:JSON.stringify(body)});
+ assert.equal((await settings.PUT(make({cookie:`lechoppe_admin_auth=${auth.createAdminSessionToken()}`}))).status,400);
+ assert.equal((await settings.PUT(make({cookie:`lechoppe_admin_auth=${auth.createAdminSessionToken()}`,'sec-fetch-site':'cross-site'}))).status,403);
+ assert.equal((await settings.PUT(make({}))).status,401);
+});
