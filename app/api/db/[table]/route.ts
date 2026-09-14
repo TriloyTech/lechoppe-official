@@ -117,6 +117,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
 
     for (const o of orders) checkColumn(table, o.column);
     const where = buildWhere(table, filters);
+    if (table === "site_settings") where.sql += `${where.sql ? " AND" : " WHERE"} key <> 'reservation_notifications'`;
     const orderSql = orders.length ? ` ORDER BY ${orders.map((o) => `"${o.column}" ${o.ascending ? "ASC" : "DESC"}`).join(", ")}` : "";
     const limitSql = limit > 0 ? ` LIMIT ${Math.max(1, Math.min(limit, 100))}` : "";
 
@@ -141,7 +142,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   try {
     const { table } = await ctx.params;
     assertAllowedTable(table);
-    if (isGenericDbBlocked(table)) {
+    if (isGenericDbBlocked(table) || (req.method !== "GET" && table === "reservations")) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
     const body = await req.json();
@@ -149,10 +150,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const action = req.nextUrl.searchParams.get("action");
     const onConflict = req.nextUrl.searchParams.get("onConflict");
 
-    if (!["reservations"].includes(table) && !isAuthed(req)) {
+    if (!isAuthed(req)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (table === "site_settings" && rows.some(row => row.key === "reservation_notifications")) return NextResponse.json({error:"Use dedicated settings endpoint"},{status:403});
     const inserted = [];
     for (const row of rows) {
       const keys = Object.keys(row).filter((k) => COLUMNS[table].has(k));
@@ -185,7 +187,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   try {
     const { table } = await ctx.params;
     assertAllowedTable(table);
-    if (isGenericDbBlocked(table)) {
+    if (isGenericDbBlocked(table) || (req.method !== "GET" && table === "reservations")) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
     if (!isAuthed(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -201,6 +203,10 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       return val;
     });
     const where = buildWhere(table, filters, values.length + 1);
+    if (table === "site_settings") {
+      if (keys.includes("key")) return NextResponse.json({error:"Cannot rename settings"},{status:403});
+      where.sql += `${where.sql ? " AND" : " WHERE"} key <> 'reservation_notifications'`;
+    }
     const result = await pool.query(`UPDATE "${table}" SET ${setSql}${where.sql} RETURNING *`, [...values, ...where.values]);
     return NextResponse.json({ data: result.rows, error: null });
   } catch (err) {
@@ -212,13 +218,14 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
   try {
     const { table } = await ctx.params;
     assertAllowedTable(table);
-    if (isGenericDbBlocked(table)) {
+    if (isGenericDbBlocked(table) || (req.method !== "GET" && table === "reservations")) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
     if (!isAuthed(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const filters = jsonParam<Filter[]>(req, "filters", []);
     const where = buildWhere(table, filters);
     if (!where.sql) return NextResponse.json({ error: "Refusing to delete without filters" }, { status: 400 });
+    if (table === "site_settings") where.sql += ` AND key <> 'reservation_notifications'`;
     const result = await pool.query(`DELETE FROM "${table}"${where.sql} RETURNING *`, where.values);
     return NextResponse.json({ data: result.rows, error: null });
   } catch (err) {

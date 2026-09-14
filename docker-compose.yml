@@ -18,6 +18,17 @@ services:
     networks:
       - shared-db-network
 
+  reservation-worker:
+    image: lechoppe-postgresql:latest
+    restart: unless-stopped
+    command: ["node", "--experimental-strip-types", "lib/reservations/run.mjs"]
+    env_file:
+      - .env
+    healthcheck:
+      disable: true
+    networks:
+      - shared-db-network
+
 networks:
   shared-db-network:
     name: shared-db-network

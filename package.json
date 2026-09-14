@@ -6,6 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "worker:reservations": "node --experimental-strip-types lib/reservations/run.mjs",
+    "test:reservations:integration": "node --experimental-strip-types --test tests/reservations.integration.mjs",
+    "test:reservations": "node --experimental-strip-types --test tests/reservations.test.mjs tests/reservations.api.test.mjs",
     "test": "node --experimental-strip-types --test tests/takeaway.test.mjs",
     "test:integration": "node tests/takeaway.integration.mjs"
   },

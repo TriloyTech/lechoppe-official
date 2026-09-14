@@ -10,3 +10,5 @@ export async function sendOrderConfirmation(input: ConfirmationInput) {
   const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ from: process.env.RESEND_FROM_EMAIL || "L'Échoppe <onboarding@resend.dev>", to: [input.to], subject: rendered.subject, html: rendered.html, text: rendered.text }) });
   if (!response.ok) throw new Error(`Resend request failed (${response.status})`);
 }
+
+export { sendReservationEmail, renderReservation, renderReservationTest } from './reservation';

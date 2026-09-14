@@ -5,16 +5,15 @@ import { useLang } from "@/context/LangContext";
 import BotCheck from "@/components/BotCheck";
 import PromotionModal from "@/components/PromotionModal";
 
-const SLOTS_LUNCH = ["12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00"];
-const SLOTS_DINNER = ["19:00", "19:30", "20:00", "20:30", "21:00", "21:30", "22:00", "22:30", "23:00"];
+import { SLOTS_LUNCH, SLOTS_DINNER, parisNow } from "@/lib/reservations/model";
 
 type Step = 0 | 1 | 2 | 3 | 4; // Date, Guests, Time, Contact, Success
 
 interface Draft {
   date: string; guests: number; time: string;
-  name: string; email: string; phone: string; notes: string;
+  name: string; email: string; phone: string; notes: string; website: string;
 }
-const INIT: Draft = { date: "", guests: 2, time: "", name: "", email: "", phone: "", notes: "" };
+const INIT: Draft = { date: "", guests: 2, time: "", name: "", email: "", phone: "", notes: "", website: "" };
 
 const slide = {
   initial: (d: number) => ({ opacity: 0, x: d * 60 }),
@@ -44,7 +43,7 @@ function StepIndicator({ step, total }: { step: number; total: number }) {
   );
 }
 
-const RESTAURANT_TZ = process.env.RESERVATION_TIMEZONE || "Europe/Paris";
+const RESTAURANT_TZ = "Europe/Paris";
 
 function getIsoInTz(dt: Date, timeZone: string = RESTAURANT_TZ): string {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -60,17 +59,7 @@ function getIsoInTz(dt: Date, timeZone: string = RESTAURANT_TZ): string {
 }
 
 function getTodayInTz(timeZone: string = RESTAURANT_TZ): Date {
-  const now = new Date();
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-  }).formatToParts(now);
-  const year = parseInt(parts.find((p) => p.type === "year")!.value, 10);
-  const month = parseInt(parts.find((p) => p.type === "month")!.value, 10) - 1;
-  const day = parseInt(parts.find((p) => p.type === "day")!.value, 10);
-  return new Date(year, month, day);
+  return new Date(`${parisNow().date}T12:00:00Z`);
 }
 
 function getCurrentTimeInTz(timeZone: string = RESTAURANT_TZ): { hour: number; minute: number } {
@@ -101,7 +90,7 @@ function StepDate({ d, next, t }: { d: Draft; next: (v: Partial<Draft>) => void;
         const baseDate = getTodayInTz();
         return Array.from({ length: 30 }, (_, i) => {
           const dt = new Date(baseDate);
-          dt.setDate(dt.getDate() + i);
+          dt.setUTCDate(dt.getUTCDate() + i);
           return dt;
         });
       })()
@@ -224,10 +213,10 @@ function StepGuests({ d, next, back, t }: { d: Draft; next: (v: Partial<Draft>) 
       {isEvent && (
         <div className="mb-3 px-4 py-3 rounded-xl text-xs leading-relaxed" style={{ background: "rgba(243,205,160,0.08)", border: "1px solid rgba(243,205,160,0.2)", color: "#F3CDA0", ...inter }}>
           🎉 {t({
-            fr: `Pour les groupes de ${guests} personnes, notre équipe événementielle vous contactera sous 2h pour personnaliser votre expérience.`,
-            en: `For a group of ${guests}, our events team will contact you within 2h to personalise your experience.`,
-            es: `Para grupos de ${guests} personas, nuestro equipo de eventos le contactará en 2h para personalizar su experiencia.`,
-            it: `Per gruppi di ${guests} persone, il nostro team eventi vi contatterà entro 2h per personalizzare la vostra esperienza.`
+            fr: `Pour les groupes de ${guests} personnes, précisez vos besoins dans les notes. La demande reste soumise à la confirmation du restaurant.`,
+            en: `For a group of ${guests}, include any special requirements in your notes. Your request remains subject to restaurant confirmation.`,
+            es: `Para grupos de ${guests} personas, indique sus necesidades en las notas. La solicitud está sujeta a confirmación del restaurante.`,
+            it: `Per gruppi di ${guests} persone, indicate le esigenze nelle note. La richiesta resta soggetta alla conferma del ristorante.`
           })}
         </div>
       )}
@@ -297,7 +286,7 @@ function StepContact({ d, onSubmit, back, t }: {
   d: Draft; onSubmit: (v: Partial<Draft> & { captcha_token: string; captcha_answer: number }) => void;
   back: () => void; t: any;
 }) {
-  const [form, setForm] = useState({ name: d.name, email: d.email, phone: d.phone, notes: d.notes });
+  const [form, setForm] = useState({ name: d.name, email: d.email, phone: d.phone, notes: d.notes, website: d.website });
   const [err, setErr] = useState("");
   const [showBot, setShowBot] = useState(false);
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -325,12 +314,12 @@ function StepContact({ d, onSubmit, back, t }: {
           {d.date} · {d.time} · {d.guests} {t({ fr: "convives", en: "guests", es: "comensales", it: "ospiti" })}
         </p>
         <div className="space-y-2.5 mb-4">
-          <input type="text" placeholder={t({ fr: "Nom complet *", en: "Full name *", es: "Nombre completo *", it: "Nome completo *" })} value={form.name} onChange={set("name")} className={inputCls} style={inputStyle} />
-          <input type="email" placeholder={t({ fr: "E-mail *", en: "Email *", es: "Correo *", it: "Email *" })} value={form.email} onChange={set("email")} className={inputCls} style={inputStyle} />
-          <input type="tel" placeholder={t({ fr: "Téléphone", en: "Phone", es: "Teléfono", it: "Telefono" })} value={form.phone} onChange={set("phone")} className={inputCls} style={inputStyle} />
-          <textarea placeholder={t({ fr: "Notes ou allergies…", en: "Notes or allergies…", es: "Notas o alergias…", it: "Note o allergie…" })} rows={2} value={form.notes} onChange={set("notes")} className={`${inputCls} resize-none`} style={inputStyle} />
+          <input type="text" placeholder={t({ fr: "Nom complet *", en: "Full name *", es: "Nombre completo *", it: "Nome completo *" })} maxLength={120} value={form.name} onChange={set("name")} className={inputCls} style={inputStyle} />
+          <input type="email" placeholder={t({ fr: "E-mail *", en: "Email *", es: "Correo *", it: "Email *" })} maxLength={254} value={form.email} onChange={set("email")} className={inputCls} style={inputStyle} />
+          <input type="tel" placeholder={t({ fr: "Téléphone", en: "Phone", es: "Teléfono", it: "Telefono" })} maxLength={40} value={form.phone} onChange={set("phone")} className={inputCls} style={inputStyle} />
+          <textarea placeholder={t({ fr: "Notes ou allergies…", en: "Notes or allergies…", es: "Notas o alergias…", it: "Note o allergie…" })} rows={2} maxLength={2000} value={form.notes} onChange={set("notes")} className={`${inputCls} resize-none`} style={inputStyle} />
           {/* ── Honeypot: hidden, must stay empty ── */}
-          <input type="text" name="website" tabIndex={-1} autoComplete="off"
+          <input type="text" name="website" value={form.website} onChange={set("website")} tabIndex={-1} autoComplete="off"
             className="absolute opacity-0 pointer-events-none h-0 overflow-hidden" aria-hidden="true" />
         </div>
         {err && <p className="text-red-400 text-xs mb-3">⚠ {err}</p>}
@@ -338,7 +327,7 @@ function StepContact({ d, onSubmit, back, t }: {
           <div className="flex gap-3">
             <button onClick={back} className="flex-1 py-3.5 border border-theme text-fg-muted text-sm tracking-widest uppercase rounded-xl hover:bg-surface2/50 transition-colors" style={{ fontFamily: "var(--font-inter)" }}>← {t({ fr: "Retour", en: "Back", es: "Volver", it: "Indietro" })}</button>
             <button onClick={handleConfirm} className="flex-1 py-3.5 bg-[#F3CDA0] text-[#0A0A0A] font-semibold text-sm tracking-widest uppercase rounded-xl hover:bg-[#e8bb88] transition-colors" style={{ fontFamily: "var(--font-inter)" }}>
-              {t({ fr: "Confirmer ✓", en: "Confirm ✓", es: "Confirmar ✓", it: "Conferma ✓" })}
+              {t({ fr: "Envoyer la demande", en: "Send request", es: "Enviar solicitud", it: "Invia richiesta" })}
             </button>
           </div>
           <p className="text-fg/30 text-[0.6rem] text-center tracking-wider" style={{ fontFamily: "var(--font-inter)" }}>
@@ -366,10 +355,10 @@ function StepSuccess({ d, reset, t }: { d: Draft; reset: () => void; t: any }) {
       </h3>
       <p className="text-fg/50 text-sm leading-relaxed max-w-sm mx-auto mb-2" style={{ fontFamily: "var(--font-inter)" }}>
         {t({
-          fr: `Merci ${d.name.split(" ")[0]}! Nous confirmerons votre table du ${d.date} à ${d.time} sous 24h par e-mail.`,
-          en: `Thank you ${d.name.split(" ")[0]}! We'll confirm your table on ${d.date} at ${d.time} within 24h by email.`,
-          es: `¡Gracias ${d.name.split(" ")[0]}! Confirmaremos su mesa del ${d.date} a las ${d.time} en 24h por correo.`,
-          it: `Grazie ${d.name.split(" ")[0]}! Confermeremo il vostro tavolo del ${d.date} alle ${d.time} entro 24h via email.`
+          fr: `Merci ${d.name.split(" ")[0]}! Votre demande pour le ${d.date} à ${d.time} est reçue. Votre table n’est pas encore confirmée.`,
+          en: `Thank you ${d.name.split(" ")[0]}! Your request for ${d.date} at ${d.time} is received. Your table is not yet confirmed.`,
+          es: `¡Gracias ${d.name.split(" ")[0]}! Hemos recibido su solicitud para el ${d.date} a las ${d.time}. Su mesa aún no está confirmada.`,
+          it: `Grazie ${d.name.split(" ")[0]}! Richiesta ricevuta per il ${d.date} alle ${d.time}. Il tavolo non è ancora confermato.`
         })}
       </p>
       <button onClick={reset}
@@ -391,6 +380,9 @@ export default function ReservationSection({ onClose }: { onClose: () => void })
   const [loading, setLoading] = useState(false);
   const [showPromo, setShowPromo] = useState(false);
   const startedAt = useRef<number>(Date.now());
+  const submissionKey = useRef<string>("");
+  const submissionPayload = useRef<string>("");
+  const submitting = useRef(false);
 
   // Track when the section first mounts for timing check
   useEffect(() => { startedAt.current = Date.now(); }, []);
@@ -411,6 +403,10 @@ export default function ReservationSection({ onClose }: { onClose: () => void })
 
     if (step === 3) {
       // ── Submit via bot-protected API route ──
+      if (submitting.current) return;
+      submitting.current = true;
+      const fingerprint = JSON.stringify({name:updated.name,email:updated.email,phone:updated.phone,notes:updated.notes,date:updated.date,time:updated.time,guests:updated.guests,lang});
+      if (!submissionKey.current || submissionPayload.current !== fingerprint) {submissionKey.current = crypto.randomUUID(); submissionPayload.current = fingerprint;}
       setLoading(true); setErr("");
       try {
         const res = await fetch("/api/reservations", {
@@ -419,21 +415,22 @@ export default function ReservationSection({ onClose }: { onClose: () => void })
           body: JSON.stringify({
             ...updated,
             party_size: updated.guests,
+            lang, submission_key: submissionKey.current,
             captcha_token: vals.captcha_token,
             captcha_answer: vals.captcha_answer,
             form_started: startedAt.current,
-            website: "",    // honeypot (always empty from legit client)
+            website: updated.website,
           }),
         });
         const data = await res.json();
-        if (!res.ok) { setErr(data.error ?? "Erreur. Réessayez."); setLoading(false); return; }
+        if (!res.ok) { setErr(data.error === "rate_limited" ? t({fr:"Trop de demandes aujourd’hui. Appelez le restaurant.",en:"Too many requests today. Please call the restaurant.",es:"Demasiadas solicitudes hoy. Llame al restaurante.",it:"Troppe richieste oggi. Chiama il ristorante."}) : t({fr:"Envoi impossible. Vérifiez les champs et la date, puis réessayez.",en:"Could not submit. Check the fields and date, then retry.",es:"No se pudo enviar. Revise los campos y la fecha y reintente.",it:"Invio non riuscito. Controlla i campi e la data e riprova."})); setLoading(false); return; }
         setLoading(false);
         // Trigger promo modal — onClose will advance to step 4
         setShowPromo(true);
         return;
       } catch {
-        setErr("Erreur réseau. Réessayez."); setLoading(false); return;
-      }
+        setErr(t({fr:"Réponse non reçue. Réessayez avec les mêmes informations pour éviter un doublon.",en:"No response received. Retry with the same details to avoid a duplicate.",es:"Sin respuesta. Reintente con los mismos datos para evitar duplicados.",it:"Nessuna risposta. Riprova con gli stessi dati per evitare duplicati."})); setLoading(false); return;
+      } finally { submitting.current = false; }
       setLoading(false);
     }
 
@@ -442,7 +439,7 @@ export default function ReservationSection({ onClose }: { onClose: () => void })
   };
 
   const back = () => { setDir(-1); setStep((s) => (s - 1) as Step); };
-  const reset = () => { setDraft(INIT); setDir(-1); setStep(0); startedAt.current = Date.now(); };
+  const reset = () => { submissionKey.current = ""; submissionPayload.current = ""; setDraft(INIT); setDir(-1); setStep(0); startedAt.current = Date.now(); };
 
   const bebas: React.CSSProperties = { fontFamily: "var(--font-bebas)", letterSpacing: "0.04em", lineHeight: 0.92 };
 
@@ -509,10 +506,10 @@ export default function ReservationSection({ onClose }: { onClose: () => void })
               </h2>
               <p className="text-fg/45 text-sm leading-relaxed max-w-sm mb-10" style={{ fontFamily: "var(--font-inter)" }}>
                 {t({
-                  fr: "Réservez en 4 étapes simples. Confirmé sous 24h. Pour les groupes de +8 personnes, appelez-nous.",
-                  en: "Book in 4 simple steps. Confirmed within 24h. For groups of 8+, please call us.",
-                  es: "Reserve en 4 sencillos pasos. Confirmado en 24h. Para grupos de +8, llámenos.",
-                  it: "Prenota in 4 semplici passaggi. Confermato entro 24h. Per gruppi di +8, chiamateci."
+                  fr: "Envoyez votre demande en 4 étapes. Confirmation du restaurant requise. Pour les groupes de +8 personnes, appelez-nous.",
+                  en: "Request a table in 4 steps. Restaurant confirmation required. For groups of 8+, please call us.",
+                  es: "Solicite una mesa en 4 pasos. Se requiere confirmación del restaurante. Para grupos de +8, llámenos.",
+                  it: "Richiedi un tavolo in 4 passaggi. È necessaria la conferma del ristorante. Per gruppi di +8, chiamateci."
                 })}
               </p>
               {[
@@ -548,6 +545,7 @@ export default function ReservationSection({ onClose }: { onClose: () => void })
                 className="rounded-2xl p-6 sm:p-8 backdrop-blur-sm min-h-[480px] sm:min-h-[500px] flex flex-col"
                 style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--card-shadow)" }}
               >
+                {err && <p role="alert" className="text-red-400 text-sm mb-3">{err}</p>}
                 {step < 4 && <StepIndicator step={step} total={4} />}
                 {loading ? (
                   <div className="flex flex-col items-center justify-center py-16 gap-4 my-auto">

@@ -107,7 +107,7 @@ export default function PromotionModal({ booking, onClose }: Props) {
             {t({ fr: "Offre Exclusive", en: "Exclusive Offer", es: "Oferta Exclusiva", it: "Offerta Esclusiva" })}
           </h2>
           <p className="text-fg-muted text-[0.65rem] tracking-widest uppercase mb-5">
-            {t({ fr: "Merci pour votre réservation,", en: "Thanks for booking,", es: "Gracias por su reserva,", it: "Grazie per la prenotazione," })} {booking.name.split(" ")[0]} !
+            {t({ fr: "Demande reçue, en attente de confirmation,", en: "Request received, awaiting confirmation,", es: "Solicitud recibida, pendiente de confirmación,", it: "Richiesta ricevuta, in attesa di conferma," })} {booking.name.split(" ")[0]} !
           </p>
           
           {offer && (
@@ -173,8 +173,8 @@ export default function PromotionModal({ booking, onClose }: Props) {
                   { k: t({ fr: "Couverts", en: "Guests", es: "Comensales", it: "Ospiti" }), v: `${booking.guests} pers.` },
                   {
                     k: t({ fr: "Date", en: "Date", es: "Fecha", it: "Data" }),
-                    v: new Intl.DateTimeFormat(lang === "en" ? "en-GB" : lang === "es" ? "es-ES" : lang === "it" ? "it-IT" : "fr-FR", { day: "numeric", month: "short" }).format(
-                      new Date(booking.date)
+                    v: new Intl.DateTimeFormat(lang === "en" ? "en-GB" : lang === "es" ? "es-ES" : lang === "it" ? "it-IT" : "fr-FR", { day: "numeric", month: "short", timeZone: "Europe/Paris" }).format(
+                      new Date(`${booking.date}T12:00:00Z`)
                     ),
                   },
                   { k: t({ fr: "Heure", en: "Time", es: "Hora", it: "Ora" }), v: booking.time },
