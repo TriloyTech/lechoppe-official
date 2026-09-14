@@ -10,7 +10,7 @@ const input=()=>validateSubmission({name:'Test <script>',email:'TEST@example.com
 const mail={kind:'received',audience:'customer',id:randomUUID(),name:'<script>alert(1)</script>',email:'test@example.com',phone:'12345',date:'2026-10-25',time:'19:30:00',party_size:2,lang:'en',notes:'<img src=x>',reason:'',contact:'existing address',managementUrl:'https://example.com/admin',staff_notes:'SECRET'};
 // Scripted DB responses exercise orchestration/rollback. Real SQL/concurrency is covered separately.
 function scripted(steps){const calls=[];const query=async(sql,args=[])=>{calls.push({sql,args});const step=steps.shift();assert.ok(step,`Unexpected SQL: ${sql}`);assert.match(sql,step[0]);if(step[1] instanceof Error)throw step[1];return {rows:step[1]||[],rowCount:(step[1]||[]).length};};return{pool:{query,connect:async()=>({query,release(){}})},calls,done(){assert.equal(steps.length,0);}};}
-function env(){process.env.RESEND_API_KEY='mock-only';process.env.RESEND_FROM_EMAIL='test@example.com';process.env.SITE_URL='https://example.com';}
+function env(){process.env.EMAIL_PROVIDER='gmail';process.env.GMAIL_SMTP_USER='mailer@example.com';process.env.GMAIL_SMTP_APP_PASSWORD='mock-app-password';process.env.EMAIL_FROM='test@example.com';process.env.SITE_URL='https://example.com';}
 test('validation matches 30-day calendar, slots, integer 1–40, contact lengths and language fallback',()=>{
  assert.equal(input().email,'test@example.com');assert.equal(language('de'),'fr');
  for(const patch of [{name:''},{email:'a@b.com\r\nBcc:evil@example.com'},{party_size:41},{party_size:2.5},{party_size:'2'},{date:'2026-09-31'},{date:'2026-10-14'},{time:'03:00'},{phone:'hello'},{notes:'x'.repeat(2001)},{submission_key:'bad'}])assert.throws(()=>validateSubmission({...input(),...patch},now));
@@ -33,10 +33,12 @@ test('dashboard initial/empty load, first arrival and repeated polls',()=>{
  const row={id:'first'};assert.deepEqual(newArrivals(null,[row]),[]);assert.deepEqual(newArrivals(new Set(),[row]),[row]);assert.deepEqual(newArrivals(new Set(['first']),[row]),[]);
 });
 test('provider mocked acceptance, idempotency, accurate failures and uncertainty',async()=>{
- env();let request;assert.equal(await sendReservationEmail('a@example.com',renderReservationTest(),'same-key',async(url,options)=>{request=options;return Response.json({id:'provider-1'});}), 'provider-1');assert.equal(request.headers['Idempotency-Key'],'same-key');
- await assert.rejects(sendReservationEmail('a@example.com',renderReservationTest(),'x',async()=>new Response('',{status:429})),/provider_http_429/);
+ env();let mail;assert.equal(await sendReservationEmail('a@example.com',renderReservationTest(),'same-key',async(opts)=>{mail=opts;return {messageId:'provider-1'};}), 'provider-1');assert.equal(mail.headers['X-Entity-Ref-ID'],'same-key');assert.equal(mail.to,'a@example.com');assert.equal(mail.from,'test@example.com');
+ await assert.rejects(sendReservationEmail('a@example.com',renderReservationTest(),'x',async()=>{const err=new Error('Invalid login');err.code='EAUTH';err.responseCode=535;throw err;}),/^Error: provider_auth_failed$/);
+ await assert.rejects(sendReservationEmail('a@example.com',renderReservationTest(),'x',async()=>{const err=new Error('Connection timed out');err.code='ETIMEDOUT';throw err;}),/^Error: provider_timeout$/);
+ await assert.rejects(sendReservationEmail('a@example.com',renderReservationTest(),'x',async()=>{const err=new Error('Recipient rejected');err.responseCode=550;throw err;}),/^Error: provider_rejected$/);
  await assert.rejects(sendReservationEmail('a@example.com',renderReservationTest(),'x',async()=>{throw new Error('secret');}),/^Error: provider_uncertain$/);
- process.env.RESEND_API_KEY='';await assert.rejects(sendReservationEmail('a@example.com',renderReservationTest(),'x',async()=>{throw new Error('must not fetch');}),/provider_missing/);env();
+ process.env.GMAIL_SMTP_USER='';await assert.rejects(sendReservationEmail('a@example.com',renderReservationTest(),'x',async()=>{throw new Error('must not send');}),/^Error: provider_missing$/);env();
 });
 function creationSteps(row,settings=[]){return [[/^BEGIN/],[/pg_advisory_xact_lock/],[/pg_advisory_xact_lock/],[/submission_key/,[]],[/pg_advisory_xact_lock/],[/bot_challenge_id/,[]],[/count\(\*\)/,[{count:0}]],[/INSERT INTO reservations/,[row]],[/INSERT INTO reservation_events/,[{id:'event'}]],[/SELECT key,value/,settings],[/INSERT INTO reservation_notifications/],[/INSERT INTO reservation_notifications/],[/^COMMIT/]];}
 test('submission saves pending booking and separate jobs; missing recipient records a blocked job',async()=>{
@@ -48,7 +50,7 @@ test('duplicate retry returns original reservation without bot replay or new job
  const conflict=scripted([[/BEGIN/],[/pg_advisory/],[/pg_advisory/],[/submission_key/,[{id:'existing',submission_hash:'different'}]],[/ROLLBACK/]]);await assert.rejects(submitReservation(conflict.pool,value,()=> 'challenge'),/idempotency_conflict/);conflict.done();
 });
 test('missing provider preserves reservation and records configuration problem',async()=>{
- process.env.RESEND_API_KEY='';const value=input(),db=scripted(creationSteps({...value,id:randomUUID()},[{key:'reservation_notifications',value:{recipient:'staff@example.com'}}]));await submitReservation(db.pool,value,()=> 'challenge');db.done();assert.ok(db.calls.filter(c=>c.sql.includes('INSERT INTO reservation_notifications')).every(c=>c.args[5]==='provider_missing'));env();
+ process.env.GMAIL_SMTP_USER='';const value=input(),db=scripted(creationSteps({...value,id:randomUUID()},[{key:'reservation_notifications',value:{recipient:'staff@example.com'}}]));await submitReservation(db.pool,value,()=> 'challenge');db.done();assert.ok(db.calls.filter(c=>c.sql.includes('INSERT INTO reservation_notifications')).every(c=>c.args[5]==='provider_missing'));env();
 });
 test('lifecycle locks row and enqueues correct event; repeat action produces no event',async()=>{
  env();for(const [previous,next,kind] of [['pending','confirmed','confirmed'],['pending','cancelled','declined'],['confirmed','cancelled','cancelled']]){

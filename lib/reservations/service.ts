@@ -22,7 +22,7 @@ async function enqueue(client:PoolClient, row:Record<string, any>, kind:EventKin
    const to = audience === 'customer' ? row.email : recipient;
    const mail:ReservationMail = {kind,audience,id:row.id,name:row.name,email:row.email,phone:row.phone || '',date:row.date,time:row.time,party_size:row.party_size,lang:language(row.lang),notes:row.notes || '',reason,contact,managementUrl};
    const issue = !to ? 'recipient_missing' : audience === 'restaurant' && !managementUrl ? 'site_url_missing' : !providerConfigured() ? 'provider_missing' : null;
-   await client.query(`INSERT INTO reservation_notifications(event_id,audience,recipient,payload,status,last_error) VALUES($1,$2,$3,$4,$5,$6)`,[event.rows[0].id,audience,to,JSON.stringify({message:renderReservation(mail),from:process.env.RESEND_FROM_EMAIL || null}),issue?'blocked':'pending',issue]);
+   await client.query(`INSERT INTO reservation_notifications(event_id,audience,recipient,payload,status,last_error) VALUES($1,$2,$3,$4,$5,$6)`,[event.rows[0].id,audience,to,JSON.stringify({message:renderReservation(mail),from:process.env.EMAIL_FROM || null}),issue?'blocked':'pending',issue]);
  }
 }
 export async function submitReservation(pool:Pool, input:ReturnType<typeof import('./model.ts').validateSubmission>, authorize:()=>string|false) {

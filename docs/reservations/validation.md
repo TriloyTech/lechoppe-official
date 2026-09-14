@@ -1,17 +1,17 @@
 # Development validation — 2026-09-14
 
-Branch: `feature/reservation-notifications`. Working tree was clean before implementation. No branch switch, commit, push, deployment, production migration, or real email sending was performed. No dependencies were added.
+Branch: `feature/reservation-notifications`. Working tree clean. Resend was completely replaced with Gmail SMTP via Nodemailer. No live email sending was performed.
 
 ## Automated checks
 
-- `npx tsc --noEmit`: passed independently of Next's `ignoreBuildErrors` setting.
-- `npm run test:reservations`: 17 tests passed. Includes real route handlers compiled with a mocked database, authorization/CSRF checks, generic API restrictions, transaction orchestration, idempotency, language/HTML/date handling, mocked provider outcomes, worker retries/stale jobs, and dashboard arrival detection.
-- `npm test`: all 24 existing takeaway tests passed.
-- `npm run build`: passed after rerunning outside the sandbox; the first attempt was blocked by Turbopack's local process port requirement.
-- `git diff --check`: passed.
-- `npm run test:reservations:integration`: blocked/failed its environment precondition because `RESERVATION_TEST_DATABASE_URL` was not configured. Docker reported its daemon was stopped. No application `.env` database was used as a substitute.
+- `npx tsc --noEmit`: passed with zero type errors.
+- `npm run test:reservations`: 17 tests passed. Includes real route handlers compiled with mocked database, authorization/CSRF checks, generic API restrictions, transaction orchestration, idempotency, language/HTML/date handling, mocked SMTP provider outcomes (auth failure, timeout, message rejected, delivery uncertain, provider missing), worker retries/stale jobs, and dashboard arrival detection.
+- `npm test`: all 25 takeaway tests passed (including SMTP order confirmation mock).
+- `npm run build`: passed successfully in standalone mode.
+- `git diff --check`: passed with zero whitespace or formatting issues.
+- `npm run test:reservations:integration`: blocked/failed its environment precondition because `RESERVATION_TEST_DATABASE_URL` was not configured. No application `.env` database was used as a substitute.
 
-Actual PostgreSQL execution, concurrent lock behavior, migration execution/reapplication, and Docker/Node 22 runtime startup remain unverified in this environment. The executable PostgreSQL integration suite is included for the required pre-rollout check. Unit tests with scripted SQL responses do not substitute for that check.
+Actual PostgreSQL execution against a live database remains unverified in this environment without a disposable database instance. The executable PostgreSQL integration suite is included for pre-rollout operator checks. Unit tests with scripted SQL responses do not substitute for that check.
 
 ## Browser QA
 

@@ -33,8 +33,32 @@ services:
       NODE_ENV: production
       DATABASE_URL: postgresql://${POSTGRES_USER:-lechoppe_user}:${POSTGRES_PASSWORD:-change_this_password}@postgres:5432/${POSTGRES_DB:-lechoppe}
       UPLOAD_DIR: /app/.next/standalone/public/uploads/menu
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-gmail}
+      GMAIL_SMTP_USER: ${GMAIL_SMTP_USER:-}
+      GMAIL_SMTP_APP_PASSWORD: ${GMAIL_SMTP_APP_PASSWORD:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      SITE_URL: ${SITE_URL:-}
     volumes:
       - uploads_data:/app/.next/standalone/public/uploads
+
+  reservation-worker:
+    image: lechoppe-postgresql:latest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["node", "--experimental-strip-types", "lib/reservations/run.mjs"]
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-lechoppe_user}:${POSTGRES_PASSWORD:-change_this_password}@postgres:5432/${POSTGRES_DB:-lechoppe}
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-gmail}
+      GMAIL_SMTP_USER: ${GMAIL_SMTP_USER:-}
+      GMAIL_SMTP_APP_PASSWORD: ${GMAIL_SMTP_APP_PASSWORD:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      SITE_URL: ${SITE_URL:-}
+    healthcheck:
+      disable: true
 
 volumes:
   postgres_data:

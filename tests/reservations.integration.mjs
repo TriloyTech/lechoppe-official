@@ -19,7 +19,7 @@ test('PostgreSQL transactions, concurrent submissions/status/claims, recovery an
   pool=new pg.Pool({connectionString:isolated.href,max:10});
   await pool.query(`CREATE TABLE reservations(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),created_at timestamptz DEFAULT now(),name text,email text,phone text,party_size int,date date,time time,status text DEFAULT 'pending',notes text);CREATE TABLE site_settings(key text PRIMARY KEY,value jsonb,updated_at timestamptz DEFAULT now());`);
   const migration=await readFile(new URL('../db/init/006_reservation_notifications.sql',import.meta.url),'utf8');await pool.query(migration);await pool.query(migration);
-  process.env.RESEND_API_KEY='mock';process.env.RESEND_FROM_EMAIL='sender@example.com';process.env.SITE_URL='https://example.com';
+  process.env.EMAIL_PROVIDER='gmail';process.env.GMAIL_SMTP_USER='mailer@example.com';process.env.GMAIL_SMTP_APP_PASSWORD='mock';process.env.EMAIL_FROM='sender@example.com';process.env.SITE_URL='https://example.com';
   await pool.query(`INSERT INTO site_settings(key,value) VALUES('reservation_notifications','{"recipient":"staff@example.com"}')`);
   const tomorrow=new Date(`${parisNow().date}T12:00:00Z`);tomorrow.setUTCDate(tomorrow.getUTCDate()+1);
   const value=validateSubmission({name:'Test',email:'a@example.com',party_size:2,date:tomorrow.toISOString().slice(0,10),time:'19:30',submission_key:randomUUID(),lang:'it'});
@@ -39,7 +39,7 @@ test('PostgreSQL transactions, concurrent submissions/status/claims, recovery an
   await assert.rejects(changeStatus(pool,ids[0],'confirmed',''),/invalid_transition/);
   const other={...value,email:'b@example.com',submission_key:randomUUID()};const second=await submitReservation(pool,other,()=> 'challenge-2');await changeStatus(pool,second,'cancelled','No tables');
   assert.equal((await pool.query("SELECT * FROM reservation_events WHERE kind='declined'")).rowCount,1);
-  await workOne(pool,async()=>{throw new Error('provider_http_503');});
-  assert.ok((await pool.query("SELECT * FROM reservation_notifications WHERE last_error='provider_http_503' OR status='superseded'")).rowCount>0);
+  await workOne(pool,async()=>{throw new Error('provider_timeout');});
+  assert.ok((await pool.query("SELECT * FROM reservation_notifications WHERE last_error='provider_timeout' OR status='superseded'")).rowCount>0);
  }finally{await pool?.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();}
 });

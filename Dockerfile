@@ -35,7 +35,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/db/init ./db/init
 
 COPY --from=builder --chown=nextjs:nodejs /app/lib/reservations ./lib/reservations
-COPY --from=builder --chown=nextjs:nodejs /app/lib/email/reservation.ts ./lib/email/reservation.ts
+COPY --from=builder --chown=nextjs:nodejs /app/lib/email ./lib/email
 
 USER nextjs
 

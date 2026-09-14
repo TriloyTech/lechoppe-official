@@ -1,3 +1,5 @@
+import nodemailer from 'nodemailer';
+import type { SendMailOptions, Transporter } from 'nodemailer';
 import { bookingDate, language, type EventKind, type Language } from '../reservations/model.ts';
 export interface ReservationMail { kind:EventKind; audience:'customer'|'restaurant'; id:string; name:string; email:string; phone:string; date:string; time:string; party_size:number; lang:Language; notes:string; reason:string; contact:string; managementUrl:string }
 const copy = {
@@ -21,15 +23,112 @@ export function renderReservation(input: ReservationMail) {
  return result;
 }
 export function renderReservationTest() { return rendered("L'Échoppe — Test des notifications de réservation", "Test des notifications de réservation. L'acceptation par le prestataire ne garantit pas la livraison en boîte de réception."); }
-export function providerConfigured() { return Boolean(process.env.RESEND_API_KEY?.trim() && process.env.RESEND_FROM_EMAIL?.trim()); }
-export async function sendReservationEmail(to:string, message:ReturnType<typeof rendered>, key:string, send = fetch, from = process.env.RESEND_FROM_EMAIL) {
- if (!providerConfigured() || !from) throw new Error('provider_missing');
- let response: Response;
- try { response = await send('https://api.resend.com/emails', {method:'POST', signal:AbortSignal.timeout(15000), headers:{Authorization:`Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type':'application/json','Idempotency-Key':key}, body:JSON.stringify({from,to:[to],...message})}); }
- catch { throw new Error('provider_uncertain'); }
- if (!response.ok) throw new Error(`provider_http_${response.status}`);
- let body;
- try { body = await response.json(); } catch { throw new Error('provider_uncertain'); }
- if (typeof body.id !== 'string') throw new Error('provider_uncertain');
- return body.id as string;
+export function providerConfigured() {
+  const provider = (process.env.EMAIL_PROVIDER || '').trim().toLowerCase();
+  return Boolean(
+    (provider === 'gmail' || (!provider && process.env.GMAIL_SMTP_USER)) &&
+    process.env.GMAIL_SMTP_USER?.trim() &&
+    process.env.GMAIL_SMTP_APP_PASSWORD?.trim() &&
+    process.env.EMAIL_FROM?.trim()
+  );
+}
+
+export function createSmtpTransporter(): Transporter {
+  const user = process.env.GMAIL_SMTP_USER?.trim();
+  const pass = process.env.GMAIL_SMTP_APP_PASSWORD?.trim();
+
+  return nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
+    auth: {
+      user,
+      pass,
+    },
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 15000,
+  });
+}
+
+export function mapSmtpError(err: unknown): Error {
+  if (err instanceof Error && /^(provider_(missing|auth_failed|timeout|rejected|uncertain))$/.test(err.message)) {
+    return err;
+  }
+  const anyErr = err as Record<string, any> | null | undefined;
+  const code = String(anyErr?.code || '').toUpperCase();
+  const responseCode = Number(anyErr?.responseCode) || 0;
+  const message = String(anyErr?.message || '').toLowerCase();
+
+  if (code === 'EAUTH' || responseCode === 535 || /auth|password|credential|535|invalid login/i.test(message)) {
+    return new Error('provider_auth_failed');
+  }
+
+  if (
+    code === 'ETIMEDOUT' ||
+    code === 'ESOCKETTIMEDOUT' ||
+    code === 'ECONNRESET' ||
+    /timeout|timed out|etimedout|esockettimedout/i.test(message)
+  ) {
+    return new Error('provider_timeout');
+  }
+
+  if (
+    (responseCode >= 500 && responseCode < 600) ||
+    code === 'EMESSAGE' ||
+    (Array.isArray(anyErr?.rejected) && anyErr?.rejected.length > 0) ||
+    /rejected|mailbox unavailable|user unknown|recipient rejected/i.test(message)
+  ) {
+    return new Error('provider_rejected');
+  }
+
+  return new Error('provider_uncertain');
+}
+
+export type SmtpTransportMock =
+  | Transporter
+  | { sendMail: (options: SendMailOptions) => Promise<{ messageId?: string; [key: string]: any }> }
+  | ((options: SendMailOptions) => Promise<{ messageId?: string; id?: string; [key: string]: any }>);
+
+export async function sendReservationEmail(
+  to: string,
+  message: ReturnType<typeof rendered>,
+  key: string,
+  transport?: SmtpTransportMock,
+  from = process.env.EMAIL_FROM
+) {
+  if (!providerConfigured() || !from) throw new Error('provider_missing');
+
+  const mailOptions: SendMailOptions = {
+    from,
+    to,
+    subject: message.subject,
+    text: message.text,
+    html: message.html,
+    headers: {
+      'X-Entity-Ref-ID': key,
+      'X-Idempotency-Key': key,
+    },
+  };
+
+  let info: { messageId?: string; id?: string } | undefined;
+  try {
+    if (transport && typeof (transport as any).sendMail === 'function') {
+      info = await (transport as any).sendMail(mailOptions);
+    } else if (typeof transport === 'function') {
+      info = await (transport as any)(mailOptions);
+    } else {
+      const client = createSmtpTransporter();
+      info = await client.sendMail(mailOptions);
+    }
+  } catch (err) {
+    throw mapSmtpError(err);
+  }
+
+  const messageId = info?.messageId || info?.id;
+  if (!messageId || typeof messageId !== 'string') {
+    throw new Error('provider_uncertain');
+  }
+
+  return messageId;
 }
