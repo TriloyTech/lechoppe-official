@@ -1,4 +1,10 @@
 import { Pool } from "pg";
+import { logServerError } from "@/lib/server/logError";
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __lechoppePool: Pool | undefined;
+}
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -6,12 +12,11 @@ if (!connectionString) {
   console.warn("DATABASE_URL is not set. PostgreSQL-backed API routes will fail until it is configured.");
 }
 
-declare global {
-  // eslint-disable-next-line no-var
-  var __lechoppePool: Pool | undefined;
-}
-
 export const pool = global.__lechoppePool ?? new Pool({ connectionString });
+
+pool.on("error", (error) => {
+  logServerError("postgres.pool", error);
+});
 
 if (process.env.NODE_ENV !== "production") {
   global.__lechoppePool = pool;

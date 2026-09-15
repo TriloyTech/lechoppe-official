@@ -10,6 +10,8 @@ import type { MenuItem, Reservation } from "@/lib/postgres/types";
 import { useLang, LANG_LABELS, LANG_FLAGS, Lang } from "@/context/LangContext";
 import { useCategories, Category, DEFAULT_CATEGORIES } from "@/lib/hooks/useCategories";
 import { useSiteContent, DEFAULT_CONTENT, SiteContent } from "@/lib/hooks/useSiteContent";
+import { bookingDate, parisNow } from "@/lib/reservations/model";
+import ReservationNotificationSettings, { ReservationAlerts, useReservationPolling } from "@/components/admin/ReservationNotifications";
 import TakeawayAdminWorkspace from "@/components/admin/takeaway/TakeawayAdminWorkspace";
 import { buildAdminOfferPayload, createAdminOfferDraft, type AdminOfferDraft } from "@/lib/takeaway/adminOffer";
 
@@ -1156,7 +1158,7 @@ function OffersPanel({ db, t }: { db: any; t: any }) {
 // ─────────────────────────────────────────────────────────────────────────────
 function DashboardPanel({ reservations, menuItems, t }: { reservations: Reservation[], menuItems: MenuItem[], t: any }) {
   const pendingRes = reservations.filter(r => r.status === "pending").length;
-  const today = new Date().toISOString().split('T')[0];
+  const today = parisNow().date;
   const todayRes = reservations.filter(r => r.date === today && r.status !== "cancelled").length;
 
   return (
@@ -1202,12 +1204,26 @@ export default function AdminDashboard() {
   
   // App state
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const reservationPolling = useReservationPolling(setReservations);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   
   // Navigation state
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
   const [menuSortBy, setMenuSortBy] = useState<string>("created_at");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const initialReservationLink = useRef<string | null>(null);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("reservation");
+    if (id) { initialReservationLink.current = id; setActiveTab("reservations"); setShowPastReservations(true); }
+  }, []);
+  useEffect(() => {
+    const id = initialReservationLink.current;
+    if (id && reservations.some(row => row.id === id)) {
+      initialReservationLink.current = null;
+      const timer = setTimeout(() => document.getElementById(`reservation-${id}`)?.scrollIntoView({block:"center"}), 350);
+      return () => clearTimeout(timer);
+    }
+  }, [reservations]);
 
   useEffect(() => {
     if (mobileMenuOpen) {
@@ -1231,19 +1247,12 @@ export default function AdminDashboard() {
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [isAddingItem, setIsAddingItem] = useState(false);
 
-  // Bulk Selection state
-  const [selectedReservations, setSelectedReservations] = useState<Set<string>>(new Set());
+  // Reservation history visibility
   const [showPastReservations, setShowPastReservations] = useState(false);
 
   const filteredReservations = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return reservations.filter(r => {
-      if (showPastReservations) return true;
-      const resDate = new Date(r.date);
-      resDate.setHours(0, 0, 0, 0);
-      return resDate >= today;
-    });
+    const today = parisNow().date;
+    return reservations.filter(r => showPastReservations || r.date >= today);
   }, [reservations, showPastReservations]);
 
   const sortedMenuItems = useMemo(() => {
@@ -1267,53 +1276,30 @@ export default function AdminDashboard() {
     });
   }, [menuItems, menuSortBy]);
 
-  const toggleReservationSelection = (id: string) => {
-    const newSet = new Set(selectedReservations);
-    if (newSet.has(id)) newSet.delete(id);
-    else newSet.add(id);
-    setSelectedReservations(newSet);
-  };
-
-  const toggleAllReservations = () => {
-    if (selectedReservations.size === filteredReservations.length && filteredReservations.length > 0) {
-      setSelectedReservations(new Set());
-    } else {
-      setSelectedReservations(new Set(filteredReservations.map(r => r.id)));
-    }
-  };
-
-  const deleteSelectedReservations = async () => {
-    if (selectedReservations.size === 0) return;
-    if (confirm(t(`Êtes-vous sûr de vouloir supprimer ces ${selectedReservations.size} réservation(s) ?`, `Are you sure you want to delete these ${selectedReservations.size} reservation(s)?`))) {
-      await db.from("reservations").delete().in("id", Array.from(selectedReservations));
-      setSelectedReservations(new Set());
-      fetchData();
-    }
-  };
-
-
   const handleLogout = async () => {
+    reservationPolling.stop();
     await fetch("/api/admin/auth", { method: "DELETE" });
     router.push("/admin/login");
   };
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [menuRes, resRes] = await Promise.all([
-      db.from("menu_items").select("*").order("category").order("name"),
-      db.from("reservations").select("*").order("date", { ascending: true }).order("time", { ascending: true }),
-    ]);
+    const menuRes = await db.from("menu_items").select("*").order("category").order("name");
 
     if (!menuRes.error) setMenuItems(menuRes.data || []);
-    if (!resRes.error) setReservations(resRes.data || []);
     setLoading(false);
   }, [db]);
 
   useEffect(() => {  fetchData(); }, [fetchData]);
 
   const updateResStatus = async (id: string, status: Reservation["status"]) => {
-    await db.from("reservations").update({ status }).eq("id", id);
-    fetchData();
+    const reason = status === "cancelled" ? prompt(t({fr:"Motif communiqué au client (obligatoire, 1000 caractères maximum)",en:"Customer-facing reason (required, maximum 1000 characters)",es:"Motivo para el cliente (obligatorio, máximo 1000 caracteres)",it:"Motivo per il cliente (obbligatorio, massimo 1000 caratteri)"})) : "";
+    if (reason === null) return;
+    try {
+      const response = await fetch(`/api/admin/reservations/${id}/status`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({status,reason})});
+      if (!response.ok) throw new Error();
+      setError(null); await reservationPolling.refresh();
+    } catch { setError(t({fr:"Modification impossible. Vérifiez le motif, actualisez et vérifiez votre session.",en:"Update failed. Check the reason, refresh and check your session.",es:"Error al actualizar. Revise el motivo, actualice y compruebe su sesión.",it:"Aggiornamento fallito. Controlla il motivo, aggiorna e verifica la sessione."})); }
   };
 
   const handleSaveItem = async (draft: Partial<MenuItem>) => {
@@ -1428,6 +1414,7 @@ export default function AdminDashboard() {
                   <SidebarItem icon="🗂️" label={t({ fr: "Catégories", en: "Categories", es: "Categorías", it: "Categorie" })} tab="categories" />
                   <SidebarItem icon="🎁" label={t({ fr: "Codes Promo", en: "Promo Codes", es: "Códigos Promo", it: "Codici Promo" })} tab="offers" />
                   <SidebarItem icon="🥡" label="Takeaway" tab="takeaway" />
+          <SidebarItem icon="⚙️" label={t({fr:"Paramètres",en:"Settings",es:"Configuración",it:"Impostazioni"})} tab="settings" />
                   
                   <div className="text-[0.65rem] text-white/20 uppercase tracking-widest mb-3 px-4 mt-8 font-semibold">Site Web CMS</div>
                   <SidebarItem icon="✏️" label={t({ fr: "Contenu & Infos", en: "Content & Info", es: "Contenido e Info", it: "Contenuti e Info" })} tab="content" />
@@ -1471,6 +1458,7 @@ export default function AdminDashboard() {
           <SidebarItem icon="🗂️" label={t({ fr: "Catégories", en: "Categories", es: "Categorías", it: "Categorie" })} tab="categories" />
           <SidebarItem icon="🎁" label={t({ fr: "Codes Promo", en: "Promo Codes", es: "Códigos Promo", it: "Codici Promo" })} tab="offers" />
           <SidebarItem icon="🥡" label="Takeaway" tab="takeaway" />
+          <SidebarItem icon="⚙️" label={t({fr:"Paramètres",en:"Settings",es:"Configuración",it:"Impostazioni"})} tab="settings" />
           
           <div className="text-[0.65rem] text-white/20 uppercase tracking-widest mb-3 px-4 mt-8 font-semibold">Site Web CMS</div>
           <SidebarItem icon="✏️" label={t({ fr: "Contenu & Infos", en: "Content & Info", es: "Contenido e Info", it: "Contenuti e Info" })} tab="content" />
@@ -1492,6 +1480,8 @@ export default function AdminDashboard() {
       {/* ── Main Content Area ── */}
       <main className="flex-1 overflow-y-auto p-4 md:p-10 bg-[#050505]">
         
+        <ReservationAlerts state={reservationPolling} settings={()=>setActiveTab("settings")} open={id=>{setActiveTab("reservations");setShowPastReservations(true);window.history.replaceState(null,"",`?reservation=${id}`);setTimeout(()=>document.getElementById(`reservation-${id}`)?.scrollIntoView({block:"center"}),350);}} />
+        {error && <p role="alert" className="text-fg bg-surface p-4 mb-4">{error}</p>}
         {/* Render Active Panel */}
         <AnimatePresence mode="wait">
           <motion.div 
@@ -1501,6 +1491,7 @@ export default function AdminDashboard() {
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
           >
+            {activeTab === "settings" && <ReservationNotificationSettings />}
             {activeTab === "dashboard" && <DashboardPanel reservations={reservations} menuItems={menuItems} t={t} />}
             {activeTab === "categories" && <CategoriesPanel t={t} />}
             {activeTab === "content" && <ContentPanel t={t} />}
@@ -1521,15 +1512,7 @@ export default function AdminDashboard() {
                     >
                       {showPastReservations ? t({ fr: "Masquer Historique", en: "Hide History", es: "Ocultar Historial", it: "Nascondi Cronologia" }) : t("Voir Historique", "Show History")}
                     </button>
-                    {selectedReservations.size > 0 && (
-                      <button 
-                        onClick={deleteSelectedReservations} 
-                        className="px-6 py-3 text-xs tracking-widest uppercase bg-red-500/20 text-red-400 border border-red-500/30 font-bold rounded-lg hover:bg-red-500/30 transition-colors shadow-[0_0_15px_rgba(239,68,68,0.1)] flex items-center gap-2"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        {t(`Supprimer (${selectedReservations.size})`, `Delete (${selectedReservations.size})`)}
-                      </button>
-                    )}
+
                   </div>
                 </div>
                 
@@ -1538,14 +1521,7 @@ export default function AdminDashboard() {
                     <table className="w-full text-left text-sm">
                       <thead className="bg-white/5 border-b border-white/10 text-white/40 uppercase tracking-widest text-[0.6rem]">
                         <tr>
-                          <th className="px-4 py-4 w-10 text-center">
-                            <input 
-                              type="checkbox" 
-                              className="cursor-pointer accent-[#7CB895]"
-                              checked={filteredReservations.length > 0 && selectedReservations.size === filteredReservations.length}
-                              onChange={toggleAllReservations}
-                            />
-                          </th>
+
                           <th className="px-6 py-4">Client</th>
                           <th className="px-6 py-4">Contact</th>
                           <th className="px-6 py-4">Date & Heure</th>
@@ -1556,18 +1532,11 @@ export default function AdminDashboard() {
                       </thead>
                       <tbody className="divide-y divide-white/10">
                         {filteredReservations.length === 0 ? (
-                          <tr><td colSpan={7} className="px-6 py-8 text-center text-white/20">{t({ fr: "Aucune réservation.", en: "No reservations.", es: "Sin reservas.", it: "Nessuna prenotazione." })}</td></tr>
+                          <tr><td colSpan={6} className="px-6 py-8 text-center text-white/20">{t({ fr: "Aucune réservation.", en: "No reservations.", es: "Sin reservas.", it: "Nessuna prenotazione." })}</td></tr>
                         ) : (
                           filteredReservations.map((r) => (
-                            <tr key={r.id} className="hover:bg-white/[0.02]">
-                              <td className="px-4 py-4 w-10 text-center">
-                                <input 
-                                  type="checkbox" 
-                                  className="cursor-pointer accent-[#7CB895]"
-                                  checked={selectedReservations.has(r.id)}
-                                  onChange={() => toggleReservationSelection(r.id)}
-                                />
-                              </td>
+                            <tr id={`reservation-${r.id}`} key={r.id} className="hover:bg-white/[0.02]">
+
                               <td className="px-6 py-4">
                                 <div className="font-medium text-white/90">{r.name}</div>
                                 {r.notes && <div className="text-[0.65rem] text-white/40 mt-1 max-w-[150px] truncate" title={r.notes}>📝 {r.notes}</div>}
@@ -1577,8 +1546,8 @@ export default function AdminDashboard() {
                                 <div>{r.phone}</div>
                               </td>
                               <td className="px-6 py-4">
-                                <div className="text-white/90">{new Date(r.date).toLocaleDateString()}</div>
-                                <div className="text-[#D4AF37] font-mono text-xs">{r.time}</div>
+                                <div className="text-white/90">{bookingDate(r.date, r.time, lang).split(" · ")[0]}</div>
+                                <div className="text-[#D4AF37] font-mono text-xs">{r.time.slice(0, 5)} (Paris)</div>
                               </td>
                               <td className="px-6 py-4 text-white/80">{r.party_size}</td>
                               <td className="px-6 py-4">
@@ -1594,16 +1563,10 @@ export default function AdminDashboard() {
                                 )}
                                 {r.status !== "cancelled" && (
                                   <button onClick={() => updateResStatus(r.id, "cancelled")} className="px-3 py-1 bg-amber-500/10 text-amber-500 border border-amber-500/20 hover:bg-amber-500/20 rounded text-xs transition-colors">
-                                    {t({ fr: "Annuler", en: "Cancel", es: "Cancelar", it: "Annulla" })}
+                                    {r.status === "pending" ? t({fr:"Refuser",en:"Decline",es:"Rechazar",it:"Rifiuta"}) : t({ fr: "Annuler", en: "Cancel", es: "Cancelar", it: "Annulla" })}
                                   </button>
                                 )}
-                                <button onClick={() => {
-                                  if (confirm(t({ fr: "Supprimer cette réservation ?", en: "Delete this reservation?", es: "¿Eliminar esta reserva?", it: "Eliminare questa prenotazione?" }))) {
-                                    db.from("reservations").delete().eq("id", r.id).then(() => fetchData());
-                                  }
-                                }} className="px-3 py-1 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 rounded text-xs transition-colors">
-                                  {t({ fr: "Supprimer", en: "Delete", es: "Eliminar", it: "Elimina" })}
-                                </button>
+
                               </td>
                             </tr>
                           ))

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/postgres/db";
+import { logServerError } from "@/lib/server/logError";
 import { takeawayCategoriesFromItems } from "@/lib/takeaway/categoryPresentation";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +33,8 @@ export async function GET() {
     const items = itemsResult.rows;
     const categories = takeawayCategoriesFromItems(items, rawCategories);
     return NextResponse.json({ categories, items });
-  } catch {
+  } catch (error) {
+    logServerError("api.takeaway.menu", error);
     return NextResponse.json({ categories: [], items: [], unavailable: true }, { status: 503 });
   }
 }

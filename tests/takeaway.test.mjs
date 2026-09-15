@@ -152,3 +152,33 @@ test("slot generation advances ordinary Paris calendar dates exactly once", () =
 test("slots respect Paris time, deduplicate, and classify the earliest available slot as ASAP", () => { const now = new Date("2026-08-24T09:00:00Z"); const slots = generateSlots(settings, now); assert.equal(slots.length, 5); assert.equal(new Set(slots.map((slot) => slot.toISOString())).size, slots.length); const adjacent = generateSlots({ ...settings, prep_lead_time_minutes: 0, operating_hours: { ...settings.operating_hours, monday: [{ open: "12:00", close: "13:00" }, { open: "13:00", close: "14:00" }] } }, now); assert.equal(adjacent.length, 9); assert.equal(new Set(adjacent.map((slot) => slot.toISOString())).size, adjacent.length); assert.equal(isValidPickupTime(slots[0], settings, now), true); assert.equal(isValidPickupTime(new Date("2026-08-24T10:07:00Z"), settings, now), false); assert.equal(classifyPickupSlots(slots, new Map(), 1)[0].type, "asap"); const firstFull = classifyPickupSlots(slots, new Map([[slots[0].toISOString(), 1]]), 1); assert.equal(firstFull[0].available, false); assert.equal(firstFull[1].type, "asap"); assert.equal(classifyPickupSlots(slots, new Map(slots.map((slot) => [slot.toISOString(), 1])), 1).some((slot) => slot.type === "asap"), false); });
 test("Paris admin pickup edits are timezone-independent and omit unchanged fields", () => { const original = { pickupTime: "2026-07-01T10:30:00.000Z", staffNotes: "Keep warm" }; const draft = createAdminOrderEditDraft(original); assert.deepEqual(draft, { pickup: "2026-07-01T12:30", notes: "Keep warm" }); assert.deepEqual(buildAdminOrderEditPatch(original, draft), {}); assert.deepEqual(buildAdminOrderEditPatch(original, { ...draft, notes: "New note" }), { staff_notes: "New note" }); assert.deepEqual(buildAdminOrderEditPatch(original, { ...draft, pickup: "2026-07-01T13:30" }), { pickup_time: "2026-07-01T11:30:00.000Z" }); assert.equal(formatParisDateTimeLocal(parisLocalDateTimeToUtc("2026-10-25T02:30")), "2026-10-25T02:30"); assert.throws(() => parisLocalDateTimeToUtc("2026-03-29T02:30"), /does not exist/); });
 test("confirmation email renders configured onsite payment methods in every language", () => { const expected = { fr: "Espèces, Carte", en: "Cash, Card", es: "Efectivo, Tarjeta", it: "Contanti, Carta" }; for (const lang of ["fr", "en", "es", "it"]) { const subset = renderOrderConfirmation({ lang, reference: "ECH-TEST", pickup: "12:30", total: 12.5, trackingUrl: "https://example.test/token", acceptedPaymentMethods: ["cash", "card"], items: [{ quantity: 1, name: "<Test>" }] }); assert.match(subset.text, /12\.50/); assert.match(subset.html, /&lt;Test&gt;/); assert.ok(subset.text.includes(expected[lang])); assert.doesNotMatch(subset.text, /Swile/); const all = renderOrderConfirmation({ lang, reference: "ECH-TEST", pickup: "12:30", total: 12.5, trackingUrl: "https://example.test/token", acceptedPaymentMethods: ["cash", "card", "ticket_restaurant", "other"], items: [] }); assert.match(all.text, /Swile/); } });
+test("sendOrderConfirmation sends via SMTP with mock transport or gracefully returns when unconfigured", async () => {
+  const { sendOrderConfirmation } = await import("../lib/email/index.ts");
+  const input = {
+    to: "customer@example.com",
+    lang: "fr",
+    reference: "ECH-TEST1",
+    pickup: "12:30",
+    total: 25.0,
+    trackingUrl: "https://example.com/track",
+    acceptedPaymentMethods: ["cash", "card"],
+    items: [{ quantity: 1, name: "Burger" }],
+  };
+  const prevUser = process.env.GMAIL_SMTP_USER;
+  process.env.GMAIL_SMTP_USER = "";
+  await assert.doesNotReject(sendOrderConfirmation(input));
+  process.env.EMAIL_PROVIDER = "gmail";
+  process.env.GMAIL_SMTP_USER = "mailer@example.com";
+  process.env.GMAIL_SMTP_APP_PASSWORD = "mock-app-password";
+  process.env.EMAIL_FROM = "sender@example.com";
+
+  let captured;
+  await sendOrderConfirmation(input, async (opts) => {
+    captured = opts;
+    return { messageId: "takeaway-msg-1" };
+  });
+  assert.equal(captured.to, "customer@example.com");
+  assert.equal(captured.from, "sender@example.com");
+  assert.equal(captured.headers["X-Entity-Ref-ID"], "takeaway/ECH-TEST1");
+  if (prevUser !== undefined) process.env.GMAIL_SMTP_USER = prevUser;
+});
