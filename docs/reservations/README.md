@@ -41,7 +41,8 @@ Configure these server-only variables for both the application container and the
 - `GMAIL_SMTP_APP_PASSWORD`: the 16-character Google App Password created above.
 - `EMAIL_FROM`: the formatted sender address (e.g. `L'Échoppe <lechoppe.notifications@gmail.com>`). Note that Gmail SMTP requires the sender address to match the authenticated account or a configured "Send mail as" alias in Gmail settings.
 - `DATABASE_URL`: self-hosted PostgreSQL connection string.
-- `SITE_URL`: absolute HTTPS public application origin, used for the authenticated `/admin?reservation=...` link. Use an HTTP localhost origin only in local development.
+- `SITE_URL`: absolute HTTPS public application origin, used for the authenticated `/admin?reservation=...` link and recognized directly as an authorized admin mutation origin. Use an HTTP localhost origin only in local development.
+- `TRUST_PROXY_HEADERS`: set to `true` when running behind a trusted TLS-terminating reverse proxy (e.g. Nginx, Caddy, Traefik) so `X-Forwarded-Proto` and `X-Forwarded-Host` are evaluated for admin origin verification.
 - Existing `ADMIN_PASSPHRASE`, `ADMIN_SESSION_SECRET`, and bot challenge secret configuration continue to apply.
 
 Never expose SMTP credentials through `NEXT_PUBLIC_*` variables, client bundles, server logs, API responses, admin settings, or database records.
@@ -95,7 +96,7 @@ node --experimental-strip-types lib/reservations/run.mjs
 
 For non-Compose deployments use a process supervisor (e.g. systemd) with automatic restart and a graceful SIGTERM timeout of at least 30 seconds. Do not run the worker as an HTTP request, browser callback, or serverless scheduled request. Monitor worker process liveness and database connectivity; its log messages contain no customer data or secrets.
 
-The worker polls every two seconds when idle. It claims one due job atomically using `FOR UPDATE SKIP LOCKED`, commits a 60-second lease, attempt count, first-attempt time, and immutable sender before SMTP I/O. An expired lease is recoverable after a crash. A claim token fences obsolete workers. Delivery holds the reservation row lock, so status changes cannot race the final stale-message check. The SMTP connection timeout is 15 seconds.
+The worker polls every two seconds when idle. It claims one due job atomically using `FOR UPDATE SKIP LOCKED`, commits a 60-second lease, attempt count, first-attempt time, and immutable sender. In an initial short transaction, it verifies job freshness and supersession. SMTP delivery is then executed outside the database transaction, preventing database row locks or connections from stalling during network I/O. A subsequent atomic transaction records the accepted provider ID or schedules a bounded exponential retry using the fenced claim token. An expired lease is recoverable after a crash. A claim token fences obsolete workers. The SMTP connection timeout is 15 seconds.
 
 Customer acknowledgments are superseded after the request leaves pending. Queued confirmations are superseded after cancellation. Restaurant alerts describe the original submission and link to current authenticated management; they do not offer unauthenticated actions.
 

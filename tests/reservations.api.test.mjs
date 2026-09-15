@@ -65,6 +65,18 @@ test('settings accept a trusted production HTTPS origin and ignore untrusted for
   assert.equal((await settings.PUT(crossForwarded)).status,403);
  } finally { if(previous===undefined)delete process.env.TRUST_PROXY_HEADERS; else process.env.TRUST_PROXY_HEADERS=previous; }
 });
+test('settings accept origin matching configured SITE_URL without requiring TRUST_PROXY_HEADERS',async()=>{
+ const settings=load('app/api/admin/reservation-notifications/route.ts');
+ const prevSiteUrl=process.env.SITE_URL; const prevTrust=process.env.TRUST_PROXY_HEADERS;
+ process.env.SITE_URL='https://lechoppe.example'; process.env.TRUST_PROXY_HEADERS='false';
+ try {
+  const req=new NextRequest('http://localhost:3000/api/admin/reservation-notifications',{method:'PUT',headers:{origin:'https://lechoppe.example',host:'localhost:3000','sec-fetch-site':'same-origin',cookie:`lechoppe_admin_auth=${auth.createAdminSessionToken()}`,'content-type':'application/json'},body:JSON.stringify({recipient:'lechoppe.restaurant@gmail.com'})});
+  assert.equal((await settings.PUT(req)).status,200);
+ } finally {
+  if(prevSiteUrl===undefined)delete process.env.SITE_URL; else process.env.SITE_URL=prevSiteUrl;
+  if(prevTrust===undefined)delete process.env.TRUST_PROXY_HEADERS; else process.env.TRUST_PROXY_HEADERS=prevTrust;
+ }
+});
 test('settings reject invalid email, cross-site mutations, and unauthenticated mutations',async()=>{
  const settings=load('app/api/admin/reservation-notifications/route.ts');
  const make=(headers,body={recipient:'bad'})=>new NextRequest('http://localhost:3000/api/admin/reservation-notifications',{method:'PUT',headers:{origin:'http://localhost:4321',host:'localhost:4321','sec-fetch-site':'same-origin',...headers,'content-type':'application/json'},body:JSON.stringify(body)});

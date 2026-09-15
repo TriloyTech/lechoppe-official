@@ -19,10 +19,29 @@ export function externallyVisibleOrigin(req: NextRequest) {
  }
 }
 
-export function guard(req:NextRequest) {
- if (!isAdminRequest(req)) return NextResponse.json({error:'unauthorized'},{status:401});
- if (req.method!=='GET' && (req.headers.get('origin')!==externallyVisibleOrigin(req) || req.headers.get('sec-fetch-site')==='cross-site')) return NextResponse.json({error:'forbidden'},{status:403});
- return null;
+export function isAllowedOrigin(req: NextRequest): boolean {
+  const origin = req.headers.get('origin');
+  if (!origin) return false;
+
+  if (process.env.SITE_URL) {
+    try {
+      const siteOrigin = new URL(process.env.SITE_URL).origin;
+      if (origin === siteOrigin) return true;
+    } catch {
+      // Ignore invalid SITE_URL
+    }
+  }
+
+  const visibleOrigin = externallyVisibleOrigin(req);
+  return Boolean(visibleOrigin && origin === visibleOrigin);
+}
+
+export function guard(req: NextRequest) {
+  if (!isAdminRequest(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  if (req.method !== 'GET' && (!isAllowedOrigin(req) || req.headers.get('sec-fetch-site') === 'cross-site')) {
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  }
+  return null;
 }
 export function failure(e:unknown) {
  const code=e instanceof Error?e.message:'';

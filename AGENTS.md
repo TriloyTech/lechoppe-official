@@ -11,18 +11,12 @@ This document defines standard operating guidelines and repository-specific inst
 - **Do Not Modify Unrelated Files**: Only touch files directly required for the given task.
 - **Git Status Hygiene**: Always check `git status` before starting work.
 - **Preserve Uncommitted Changes**: Never discard, overwrite, or revert existing uncommitted changes.
-- **End-to-End Ownership**: Continue until the requested development task is fully implemented, tested, documented where relevant, committed, and pushed. Do not stop after analysis, a plan, or partial implementation unless blocked by a critical issue.
-- **Permission Handling**: Treat the development request as authorization for routine code edits, local migrations, dependency installation when necessary, tests, builds, commits, and pushes to the working branch. Do not repeatedly ask for confirmation.
-- **Complete and Publish Changes**: For development tasks, complete the implementation, run relevant validation, commit the task’s changes, and push the working branch to the configured remote unless the user explicitly instructs otherwise.
-- **Branch Safety**: Never commit directly to the default or protected branch. Use the current feature branch. If currently on the default branch, create a clearly named feature branch before making changes.
-- **No Automatic Merge or Deployment**: Do not merge, force-push, rewrite shared history, or deploy to production unless explicitly instructed.
-- **Commit Scope**: Commit only files related to the requested task. Never commit secrets, environment files containing credentials, or unrelated existing changes.
-- **Completion Report**: Report the validation results, commit hash, and pushed remote branch after completing the task.
-- **Dependency Discipline**: Do not introduce new libraries or dependencies unless strictly necessary. Prefer existing dependencies and explain material additions in the completion report.
+- **No Unsolicited Git Actions**: Do not commit, push, merge, or create new branches unless explicitly instructed by the user.
+- **Dependency Discipline**: Do not introduce new libraries or dependencies unless strictly necessary and approved.
 - **Diff Review**: Always review the git diff after implementation to verify changes and ensure no unexpected edits or artifacts are introduced.
-- **Validation**: Run appropriate validation, such as relevant tests, `npx tsc --noEmit`, and build verification, before declaring a task complete.
-- **Validation Reporting**: Clearly state which validation checks passed and report validations that could not be executed.
-- **Autonomous Decisions**: Make reasonable technical and architectural decisions using the request, existing code, and repository conventions. Ask the user only when a critical ambiguity or risk prevents safe progress, such as potential data loss, destructive production changes, missing credentials, an unclear remote destination, or conflicting requirements.
+- **Validation**: Run appropriate validation (e.g., type checking with `npx tsc --noEmit` and build verification) before declaring a task complete.
+- **Validation Reporting**: Clearly state which validation checks passed and explicitly report any validations that could not be executed (e.g. due to missing runtime environments or services).
+- **Architecture Proposals**: For non-trivial or significant architectural changes, propose the approach and get user alignment before implementation.
 
 ---
 

@@ -38,6 +38,7 @@ services:
       GMAIL_SMTP_APP_PASSWORD: ${GMAIL_SMTP_APP_PASSWORD:-}
       EMAIL_FROM: ${EMAIL_FROM:-}
       SITE_URL: ${SITE_URL:-}
+      TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-false}
     volumes:
       - uploads_data:/app/.next/standalone/public/uploads
 
