@@ -34,6 +34,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/db/init ./db/init
 
+# The reservation worker is copied into the standalone image separately.
+# Include its production-only SMTP runtime dependency explicitly as well.
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules/nodemailer ./node_modules/nodemailer
 COPY --from=builder --chown=nextjs:nodejs /app/lib/reservations ./lib/reservations
 COPY --from=builder --chown=nextjs:nodejs /app/lib/email ./lib/email
 

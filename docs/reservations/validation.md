@@ -37,3 +37,16 @@ Screenshots are local QA artifacts outside the repository:
 The QA script is `/private/tmp/reservation-ui-qa.mjs`. Browser persistence is mocked, not proof of PostgreSQL persistence. Physical audio playback, multiple-browser sound coordination, live provider acceptance, inbox delivery, bounces, and delivery ordering were not verified.
 
 Production email delivery remains unverified. No authorized live test was performed.
+
+## Docker runtime smoke validation
+
+After rebuilding the image without cache, verify the manually copied worker runtime can resolve its SMTP dependency from the final image:
+
+```bash
+docker compose -f docker-compose.local.yml run --rm --no-deps lechoppe \
+  node --experimental-strip-types --input-type=module \
+  -e "await import('nodemailer'); await import('./lib/email/reservation.ts'); console.log('reservation worker runtime imports: ok')"
+docker compose -f docker-compose.local.yml ps lechoppe reservation-worker
+```
+
+The import command must print `reservation worker runtime imports: ok`, and the worker must remain `Up` rather than restarting.
