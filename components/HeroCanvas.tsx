@@ -25,10 +25,9 @@ export default function HeroCanvas({ ready = true, onBookClick }: Props) {
   return (
     <section
       ref={containerRef}
-      className="relative w-full bg-[#050505]"
-      style={{ height: "400vh" }}
+      className="relative w-full h-[200svh] md:h-[400vh] bg-[#050505]"
     >
-      <div className="sticky top-0 left-0 w-full h-screen flex items-center justify-center overflow-hidden">
+      <div className="sticky top-0 left-0 w-full h-[100svh] md:h-screen flex items-center justify-center overflow-hidden">
         {/* Container for initial ease-in from dark */}
         <motion.div
           initial={{ opacity: 0 }}

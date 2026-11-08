@@ -2,6 +2,7 @@
 
 import { MotionValue, motion, useTransform } from "framer-motion";
 import { useSiteContent } from "@/lib/hooks/useSiteContent";
+import { useMobileMotion } from "@/lib/hooks/useMobileMotion";
 import { useLang } from "@/context/LangContext";
 
 interface Props {
@@ -11,23 +12,38 @@ interface Props {
 
 export default function HeroTextOverlays({ scrollYProgress, onBookClick }: Props) {
   const { content } = useSiteContent();
+  const { isMobile } = useMobileMotion();
   const { t } = useLang();
 
   // ── Slide 1 · 0-10%: "L'ÉCHOPPE DE PARIS" — centred ─────────────────────
-  const op1 = useTransform(scrollYProgress, [0, 0.02, 0.08, 0.13], [0, 1, 1, 0]);
+  const desktopOp1 = useTransform(scrollYProgress, [0, 0.02, 0.08, 0.13], [0, 1, 1, 0]);
+  const mobileOp1 = useTransform(scrollYProgress, [0, 0.03, 0.19, 0.24], [0, 1, 1, 0]);
+  const op1 = isMobile ? mobileOp1 : desktopOp1;
   const y1  = useTransform(scrollYProgress, [0, 0.13], [20, -30]);
 
   // ── Slide 2 · 30-40%: Philosophy — left ──────────────────────────────────
-  const op2 = useTransform(scrollYProgress, [0.28, 0.33, 0.38, 0.44], [0, 1, 1, 0]);
-  const x2  = useTransform(scrollYProgress, [0.28, 0.35], [-50, 0]);
+  const desktopOp2 = useTransform(scrollYProgress, [0.28, 0.33, 0.38, 0.44], [0, 1, 1, 0]);
+  const mobileOp2 = useTransform(scrollYProgress, [0.22, 0.27, 0.43, 0.48], [0, 1, 1, 0]);
+  const op2 = isMobile ? mobileOp2 : desktopOp2;
+  const desktopX2 = useTransform(scrollYProgress, [0.28, 0.35], [-50, 0]);
+  const mobileX2 = useTransform(scrollYProgress, [0.22, 0.29], [-50, 0]);
+  const x2 = isMobile ? mobileX2 : desktopX2;
 
   // ── Slide 3 · 60-70%: Product — right ────────────────────────────────────
-  const op3 = useTransform(scrollYProgress, [0.58, 0.63, 0.68, 0.74], [0, 1, 1, 0]);
-  const x3  = useTransform(scrollYProgress, [0.58, 0.65], [50, 0]);
+  const desktopOp3 = useTransform(scrollYProgress, [0.58, 0.63, 0.68, 0.74], [0, 1, 1, 0]);
+  const mobileOp3 = useTransform(scrollYProgress, [0.46, 0.51, 0.67, 0.72], [0, 1, 1, 0]);
+  const op3 = isMobile ? mobileOp3 : desktopOp3;
+  const desktopX3 = useTransform(scrollYProgress, [0.58, 0.65], [50, 0]);
+  const mobileX3 = useTransform(scrollYProgress, [0.46, 0.53], [50, 0]);
+  const x3 = isMobile ? mobileX3 : desktopX3;
 
   // ── Slide 4 · 90-100%: CTA — centred ─────────────────────────────────────
-  const op4    = useTransform(scrollYProgress, [0.88, 0.93, 0.98, 1.0], [0, 1, 1, 1]);
-  const scale4 = useTransform(scrollYProgress, [0.88, 0.95], [0.92, 1]);
+  const desktopOp4 = useTransform(scrollYProgress, [0.88, 0.93, 0.98, 1.0], [0, 1, 1, 1]);
+  const mobileOp4 = useTransform(scrollYProgress, [0.70, 0.76, 0.86, 1.0], [0, 1, 1, 1]);
+  const op4 = isMobile ? mobileOp4 : desktopOp4;
+  const desktopScale4 = useTransform(scrollYProgress, [0.88, 0.95], [0.92, 1]);
+  const mobileScale4 = useTransform(scrollYProgress, [0.70, 0.78], [0.92, 1]);
+  const scale4 = isMobile ? mobileScale4 : desktopScale4;
 
   // ── Shared typography styles ──────────────────────────────────────────────
   const bebas: React.CSSProperties = {
