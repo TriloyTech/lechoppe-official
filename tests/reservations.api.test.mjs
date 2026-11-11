@@ -27,7 +27,7 @@ function load(path){path=resolve(path);if(cache.has(path))return cache.get(path)
               return {data:null};
             }
           }),
-          or:()=>Promise.resolve({data:[],count:0}),
+          or:()=>({order:()=>({limit:()=>Promise.resolve({data:[]})}),...Promise.resolve({data:[],count:0})}),
         }),
         upsert:async(record)=>{
           calls.push({sql:`INSERT INTO ${table}(key,value) VALUES($1,$2)`,args:[record.key,JSON.stringify(record.value)]});
@@ -110,4 +110,19 @@ test('settings reject invalid email, cross-site mutations, and unauthenticated m
  assert.equal((await settings.PUT(make({cookie:`lechoppe_admin_auth=${auth.createAdminSessionToken()}`}))).status,400);
  assert.equal((await settings.PUT(make({cookie:`lechoppe_admin_auth=${auth.createAdminSessionToken()}`,'sec-fetch-site':'cross-site'}))).status,403);
  assert.equal((await settings.PUT(make({}))).status,401);
+});
+test('internal reservation dispatch requires worker secret and executes workOne',async()=>{
+ const dispatch=load('app/api/internal/reservations/dispatch/route.ts');
+ const unauthed=new NextRequest('http://localhost:3000/api/internal/reservations/dispatch',{method:'POST'});
+ assert.equal((await dispatch.POST(unauthed)).status,401);
+ const authed=new NextRequest('http://localhost:3000/api/internal/reservations/dispatch',{method:'POST',headers:{'x-worker-secret':'test_secret'}});
+ process.env.INTERNAL_WORKER_SECRET='test_secret';
+ try {
+  const res=await dispatch.POST(authed);
+  assert.equal(res.status,200);
+  const data=await res.json();
+  assert.equal(data.ok,true);
+ } finally {
+  delete process.env.INTERNAL_WORKER_SECRET;
+ }
 });
