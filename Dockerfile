@@ -39,6 +39,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/db/init ./db/init
 COPY --from=deps --chown=nextjs:nodejs /app/node_modules/nodemailer ./node_modules/nodemailer
 COPY --from=builder --chown=nextjs:nodejs /app/lib/reservations ./lib/reservations
 COPY --from=builder --chown=nextjs:nodejs /app/lib/email ./lib/email
+COPY --from=builder --chown=nextjs:nodejs /app/lib/supabase ./lib/supabase
 
 USER nextjs
 
