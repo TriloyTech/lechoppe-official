@@ -1,36 +1,55 @@
 import { NextRequest, NextResponse } from "next/server";
-import { pool } from "@/lib/postgres/db";
 import { isAdmin } from "@/lib/takeaway/admin";
+import { createAdminClient } from "@/lib/supabase/server";
 
 const STATUSES = new Set(["NEW", "ACCEPTED", "PREPARING", "READY", "COMPLETED", "CANCELLED", "NO_SHOW"]);
-const SAFE_ORDER_COLUMNS = `o.id, o.order_reference, o.customer_name, o.customer_email,
-  o.customer_phone, o.pickup_time_type, o.pickup_time, o.customer_notes, o.status,
-  o.payment_status, o.payment_method, o.subtotal_ttc, o.discount_ttc, o.promo_code,
-  o.final_total_ttc, o.order_snapshot, o.cancellation_reason_code,
-  o.cancellation_reason_label, o.cancellation_note, o.staff_notes, o.lang, o.placed_at,
-  o.accepted_at, o.preparing_at, o.ready_at, o.completed_at, o.cancelled_at,
-  o.no_show_at, o.paid_at`;
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   if (!isAdmin(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const status = request.nextUrl.searchParams.get("status");
-  const search = request.nextUrl.searchParams.get("q")?.trim().slice(0, 100);
-  const from = request.nextUrl.searchParams.get("from");
-  const to = request.nextUrl.searchParams.get("to");
-  const values: unknown[] = [];
-  const where: string[] = [];
-  if (status && STATUSES.has(status)) { values.push(status); where.push(`o.status = $${values.length}`); }
-  if (search) { values.push(`%${search}%`); where.push(`(o.order_reference ILIKE $${values.length} OR o.customer_name ILIKE $${values.length} OR o.customer_phone ILIKE $${values.length})`); }
-  if (from && /^\d{4}-\d{2}-\d{2}$/.test(from)) { values.push(from); where.push(`o.placed_at >= $${values.length}::date`); }
-  if (to && /^\d{4}-\d{2}-\d{2}$/.test(to)) { values.push(to); where.push(`o.placed_at < $${values.length}::date + interval '1 day'`); }
-  const result = await pool.query(
-    `SELECT ${SAFE_ORDER_COLUMNS},
-       COALESCE((SELECT jsonb_agg(to_jsonb(e) ORDER BY e.created_at) FROM takeaway_order_events e WHERE e.order_id = o.id), '[]'::jsonb) AS events
-     FROM takeaway_orders o ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
-     ORDER BY CASE WHEN o.status IN ('NEW','ACCEPTED','PREPARING','READY') THEN 0 ELSE 1 END,
-       o.pickup_time ASC, o.placed_at DESC LIMIT 200`,
-    values,
-  );
-  return NextResponse.json({ orders: result.rows });
+  try {
+    const status = request.nextUrl.searchParams.get("status");
+    const search = request.nextUrl.searchParams.get("q")?.trim().slice(0, 100);
+    const from = request.nextUrl.searchParams.get("from");
+    const to = request.nextUrl.searchParams.get("to");
+
+    const supabase = createAdminClient();
+    let query = supabase.from("takeaway_orders").select("*, takeaway_order_events(*)");
+
+    if (status && STATUSES.has(status)) {
+      query = query.eq("status", status);
+    }
+    if (search) {
+      query = query.or(
+        `order_reference.ilike.%${search}%,customer_name.ilike.%${search}%,customer_phone.ilike.%${search}%`
+      );
+    }
+    if (from && /^\d{4}-\d{2}-\d{2}$/.test(from)) {
+      query = query.gte("placed_at", `${from}T00:00:00Z`);
+    }
+    if (to && /^\d{4}-\d{2}-\d{2}$/.test(to)) {
+      query = query.lte("placed_at", `${to}T23:59:59Z`);
+    }
+
+    const { data, error } = await query
+      .order("pickup_time", { ascending: true })
+      .order("placed_at", { ascending: false })
+      .limit(200);
+
+    if (error) throw error;
+
+    const orders = (data || []).map((o: any) => ({
+      ...o,
+      events: (o.takeaway_order_events || []).sort(
+        (a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      ),
+    }));
+
+    return NextResponse.json({ orders });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to load orders" },
+      { status: 500 }
+    );
+  }
 }

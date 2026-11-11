@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { pool } from "@/lib/postgres/db";
 import { BoundedRateLimiter, requestRateLimitKey } from "@/lib/takeaway/rateLimit";
 import { normalizePromoCode, validatePromotionRecord } from "@/lib/takeaway/promotions";
+import { createAdminClient } from "@/lib/supabase/server";
 
 const limiter = new BoundedRateLimiter(5_000);
 
@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
   if (rate.limited) {
     return NextResponse.json(
       { valid: false, reason: "RATE_LIMITED" },
-      { status: 429, headers: { "Retry-After": String(rate.retryAfterSeconds) } },
+      { status: 429, headers: { "Retry-After": String(rate.retryAfterSeconds) } }
     );
   }
 
@@ -22,10 +22,14 @@ export async function POST(request: NextRequest) {
   }
   if (!code) return NextResponse.json({ valid: false, reason: "INVALID" }, { status: 400 });
 
-  const result = await pool.query(
-    "SELECT code, discount, active, takeaway_eligible, valid_until FROM offers WHERE upper(code) = $1 LIMIT 1",
-    [code],
-  );
-  const validation = validatePromotionRecord(result.rows[0]);
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("offers")
+    .select("code, discount, active, takeaway_eligible, valid_until")
+    .ilike("code", code)
+    .limit(1)
+    .maybeSingle();
+
+  const validation = validatePromotionRecord(data);
   return NextResponse.json(validation, { status: validation.valid ? 200 : 400 });
 }

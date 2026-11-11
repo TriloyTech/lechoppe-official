@@ -1,36 +1,62 @@
 import { NextResponse } from "next/server";
-import { pool } from "@/lib/postgres/db";
 import { logServerError } from "@/lib/server/logError";
 import { takeawayCategoriesFromItems } from "@/lib/takeaway/categoryPresentation";
+import { createAdminClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const [categoriesResult, itemsResult] = await Promise.all([
-      pool.query("SELECT value FROM site_settings WHERE key = $1", ["categories"]),
-      pool.query(`SELECT m.id, m.name, m.description, m.price, m.category, m.image_url,
-          m.available,
-          m.has_allergens, m.allergens_text, m.vat_rate, m.max_quantity_per_order, m.display_order,
-          COALESCE(jsonb_agg(jsonb_build_object(
-            'id', g.id, 'key', g.key, 'name', g.name, 'selection_type', g.selection_type,
-            'is_required', g.is_required, 'min_selections', g.min_selections,
-            'max_selections', g.max_selections, 'is_active', g.is_active, 'display_order', link.display_order,
-            'choices', COALESCE((SELECT jsonb_agg(jsonb_build_object(
-              'id', c.id, 'group_id', c.group_id, 'name', c.name, 'price_modifier', c.price_modifier,
-              'vat_rate_override', c.vat_rate_override, 'is_available', c.is_available,
-              'is_default', c.is_default, 'display_order', c.display_order
-            ) ORDER BY c.display_order, c.id) FROM takeaway_option_choices c WHERE c.group_id = g.id), '[]'::jsonb)
-          ) ORDER BY link.display_order, g.display_order) FILTER (WHERE g.id IS NOT NULL), '[]'::jsonb) AS option_groups
-        FROM menu_items m
-        LEFT JOIN menu_item_option_groups link ON link.item_id = m.id
-        LEFT JOIN takeaway_option_groups g ON g.id = link.group_id AND g.is_active
-        WHERE m.takeaway_available = true
-        GROUP BY m.id
-        ORDER BY m.category, m.display_order, m.name`),
+    const supabase = createAdminClient();
+    const [categoriesResult, itemsResult, linksResult, groupsResult, choicesResult] = await Promise.all([
+      supabase.from("site_settings").select("value").eq("key", "categories").maybeSingle(),
+      supabase.from("menu_items").select("*").eq("takeaway_available", true).order("category").order("display_order").order("name"),
+      supabase.from("menu_item_option_groups").select("*").order("display_order"),
+      supabase.from("takeaway_option_groups").select("*").eq("is_active", true).order("display_order"),
+      supabase.from("takeaway_option_choices").select("*").order("display_order"),
     ]);
-    const rawCategories = Array.isArray(categoriesResult.rows[0]?.value) ? categoriesResult.rows[0].value : [];
-    const items = itemsResult.rows;
+
+    const rawCategories = Array.isArray(categoriesResult.data?.value) ? categoriesResult.data.value : [];
+    const links = linksResult.data || [];
+    const groups = groupsResult.data || [];
+    const choices = choicesResult.data || [];
+
+    const choicesByGroup = new Map<string, any[]>();
+    for (const c of choices) {
+      if (!choicesByGroup.has(c.group_id)) choicesByGroup.set(c.group_id, []);
+      choicesByGroup.get(c.group_id)!.push(c);
+    }
+
+    const groupMap = new Map(groups.map((g) => [g.id, g]));
+
+    const items = (itemsResult.data || []).map((item) => {
+      const itemLinks = links.filter((l) => l.item_id === item.id);
+      const option_groups = itemLinks
+        .map((link) => {
+          const g = groupMap.get(link.group_id);
+          if (!g) return null;
+          return {
+            id: g.id,
+            key: g.key,
+            name: g.name,
+            selection_type: g.selection_type,
+            is_required: g.is_required,
+            min_selections: g.min_selections,
+            max_selections: g.max_selections,
+            is_active: g.is_active,
+            display_order: link.display_order,
+            choices: choicesByGroup.get(g.id) || [],
+          };
+        })
+        .filter(Boolean)
+        .sort((a: any, b: any) => a.display_order - b.display_order);
+
+      return {
+        ...item,
+        option_groups,
+      };
+    });
+
     const categories = takeawayCategoriesFromItems(items, rawCategories);
     return NextResponse.json({ categories, items });
   } catch (error) {

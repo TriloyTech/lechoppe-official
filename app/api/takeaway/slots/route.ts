@@ -1,18 +1,42 @@
 import { NextResponse } from "next/server";
-import { pool } from "@/lib/postgres/db";
 import { classifyPickupSlots, generateSlots } from "@/lib/takeaway/slots";
 import { sanitizeTakeawaySettings } from "@/lib/takeaway/settings";
+import { createAdminClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const settingsResult = await pool.query("SELECT value FROM site_settings WHERE key = $1", ["takeaway_settings"]);
-    const settings = sanitizeTakeawaySettings(settingsResult.rows[0]?.value);
+    const supabase = createAdminClient();
+    const settingsResult = await supabase
+      .from("site_settings")
+      .select("value")
+      .eq("key", "takeaway_settings")
+      .maybeSingle();
+
+    const settings = sanitizeTakeawaySettings(settingsResult.data?.value);
     if (!settings.takeaway_enabled || settings.pause_mode) return NextResponse.json({ slots: [] });
     const slots = generateSlots(settings);
-    const counts = slots.length ? await pool.query(`SELECT pickup_time, count(*)::int AS count FROM takeaway_orders WHERE pickup_time = ANY($1::timestamptz[]) AND status <> 'CANCELLED' GROUP BY pickup_time`, [slots]) : { rows: [] };
-    const byTime = new Map(counts.rows.map((row) => [new Date(row.pickup_time).toISOString(), row.count]));
+
+    let byTime = new Map<string, number>();
+    if (slots.length > 0) {
+      const slotStrings = slots.map((s) => s.toISOString());
+      const { data: orders } = await supabase
+        .from("takeaway_orders")
+        .select("pickup_time")
+        .in("pickup_time", slotStrings)
+        .neq("status", "CANCELLED");
+
+      const counts = new Map<string, number>();
+      for (const row of orders || []) {
+        const key = new Date(row.pickup_time).toISOString();
+        counts.set(key, (counts.get(key) || 0) + 1);
+      }
+      byTime = counts;
+    }
+
     return NextResponse.json({ slots: classifyPickupSlots(slots, byTime, settings.max_orders_per_slot) });
-  } catch { return NextResponse.json({ slots: [] }, { status: 503 }); }
+  } catch {
+    return NextResponse.json({ slots: [] }, { status: 503 });
+  }
 }

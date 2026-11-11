@@ -15,6 +15,33 @@ function load(path){path=resolve(path);if(cache.has(path))return cache.get(path)
  const code=ts.transpileModule(readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
  const localRequire=(id)=>{
   if(id==='@/lib/postgres/db')return {pool,assertAllowedTable:(table)=>{if(!['reservations','site_settings','menu_items'].includes(table))throw new Error('Table not allowed');}};
+  if(id==='@/lib/supabase/server'||id==='../supabase/server.ts'||id==='../supabase/server'||id==='@/lib/supabase/server.ts')return {
+    createAdminClient:()=>({
+      from:(table)=>({
+        select:(cols,{count}={})=>({
+          order:()=>({order:()=>Promise.resolve({data:[]})}),
+          eq:(col,val)=>({
+            maybeSingle:async()=>{
+              calls.push({sql:`SELECT value FROM ${table} WHERE ${col} = $1`,args:[val]});
+              if(table==='reservation_notification_test_limits')return {data:{last_attempt_at:new Date().toISOString()}};
+              return {data:null};
+            }
+          }),
+          or:()=>Promise.resolve({data:[],count:0}),
+        }),
+        upsert:async(record)=>{
+          calls.push({sql:`INSERT INTO ${table}(key,value) VALUES($1,$2)`,args:[record.key,JSON.stringify(record.value)]});
+          return {data:record,error:null};
+        },
+        update:()=>({
+          eq:async(col,val)=>{
+            calls.push({sql:`UPDATE ${table} WHERE ${col} = $1`,args:[val]});
+            return {data:null,error:null};
+          }
+        }),
+      })
+    })
+  };
   if(id==='next/server')return require('next/server.js');
   if(id.startsWith('@/')||id.startsWith('.')){let p=id.startsWith('@/')?resolve(id.slice(2)):resolve(dirname(path),id);if(!existsSync(p))p+='.ts';return load(p);}
   return require(id);

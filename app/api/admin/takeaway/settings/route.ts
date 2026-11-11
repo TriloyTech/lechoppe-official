@@ -1,30 +1,52 @@
 import { NextRequest, NextResponse } from "next/server";
-import { pool } from "@/lib/postgres/db";
 import { isAdminRequest } from "@/lib/admin/auth";
 import { mergeAndValidateTakeawaySettings, sanitizeTakeawaySettings } from "@/lib/takeaway/settings";
+import { createAdminClient } from "@/lib/supabase/server";
 
 const isAuthed = isAdminRequest;
 
 export async function GET(request: NextRequest) {
   if (!isAuthed(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const result = await pool.query("SELECT value FROM site_settings WHERE key = $1", ["takeaway_settings"]);
-  return NextResponse.json({ settings: sanitizeTakeawaySettings(result.rows[0]?.value) });
+  try {
+    const supabase = createAdminClient();
+    const { data, error } = await supabase
+      .from("site_settings")
+      .select("value")
+      .eq("key", "takeaway_settings")
+      .maybeSingle();
+    if (error) throw error;
+    return NextResponse.json({ settings: sanitizeTakeawaySettings(data?.value) });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to load settings" },
+      { status: 500 }
+    );
+  }
 }
 
 export async function PATCH(request: NextRequest) {
   if (!isAuthed(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const input = await request.json();
-    const existing = await pool.query("SELECT value FROM site_settings WHERE key = $1", ["takeaway_settings"]);
-    const { settings } = mergeAndValidateTakeawaySettings(existing.rows[0]?.value, input);
-    const result = await pool.query(
-      `INSERT INTO site_settings (key, value) VALUES ($1, $2::jsonb)
-       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()
-       RETURNING value`,
-      ["takeaway_settings", JSON.stringify(settings)],
-    );
-    return NextResponse.json({ settings: sanitizeTakeawaySettings(result.rows[0].value) });
+    const supabase = createAdminClient();
+    const { data: existing } = await supabase
+      .from("site_settings")
+      .select("value")
+      .eq("key", "takeaway_settings")
+      .maybeSingle();
+
+    const { settings } = mergeAndValidateTakeawaySettings(existing?.value, input);
+    const { data, error } = await supabase
+      .from("site_settings")
+      .upsert({ key: "takeaway_settings", value: settings }, { onConflict: "key" })
+      .select("value")
+      .single();
+    if (error) throw error;
+    return NextResponse.json({ settings: sanitizeTakeawaySettings(data.value) });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Invalid request" }, { status: 400 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Invalid request" },
+      { status: 400 }
+    );
   }
 }

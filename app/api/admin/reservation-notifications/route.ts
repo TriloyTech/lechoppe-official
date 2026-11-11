@@ -1,21 +1,76 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { pool } from '@/lib/postgres/db';
-import { guard, failure } from '@/lib/reservations/admin';
-import { emailAddress } from '@/lib/reservations/model';
-import { SETTING_KEY } from '@/lib/reservations/service';
-import { providerConfigured } from '@/lib/email/reservation';
-export async function GET(req:NextRequest) {
- const denied=guard(req); if(denied)return denied;
- try {
- const [settings,jobs]=await Promise.all([
- pool.query('SELECT value FROM site_settings WHERE key=$1',[SETTING_KEY]),
- pool.query(`SELECT n.id,e.reservation_id,e.kind,n.audience,n.status,n.attempts,n.last_error,n.provider_message_id,n.next_attempt_at,
- (n.recipient IS NOT NULL AND n.status IN ('blocked','failed') AND n.attempts<6 AND (n.first_attempt_at IS NULL OR n.first_attempt_at>now()-interval '23 hours') AND n.last_error IS DISTINCT FROM 'site_url_missing') AS retryable
- FROM reservation_notifications n JOIN reservation_events e ON e.id=n.event_id WHERE n.status IN ('blocked','failed') OR n.last_error IS NOT NULL ORDER BY n.created_at DESC LIMIT 50`)]);
- return NextResponse.json({recipient:settings.rows[0]?.value?.recipient || '',providerConfigured:providerConfigured(),siteUrlConfigured:Boolean(process.env.SITE_URL),problems:jobs.rows},{headers:{'Cache-Control':'no-store'}});
- } catch(e){return failure(e);}
+import { NextRequest, NextResponse } from "next/server";
+import { guard, failure } from "@/lib/reservations/admin";
+import { emailAddress } from "@/lib/reservations/model";
+import { SETTING_KEY } from "@/lib/reservations/service";
+import { providerConfigured } from "@/lib/email/reservation";
+import { createAdminClient } from "@/lib/supabase/server";
+
+export async function GET(req: NextRequest) {
+  const denied = guard(req);
+  if (denied) return denied;
+  try {
+    const supabase = createAdminClient();
+    const [settingsResult, notificationsResult] = await Promise.all([
+      supabase.from("site_settings").select("value").eq("key", SETTING_KEY).maybeSingle(),
+      supabase
+        .from("reservation_notifications")
+        .select("id, event_id, audience, status, attempts, last_error, provider_message_id, next_attempt_at, recipient, first_attempt_at, created_at, reservation_events(reservation_id, kind)")
+        .or("status.in.(blocked,failed),last_error.not.is.null")
+        .order("created_at", { ascending: false })
+        .limit(50),
+    ]);
+
+    const cutoff = Date.now() - 23 * 3600 * 1000;
+    const problems = (notificationsResult.data || []).map((n: any) => {
+      const firstAttempt = n.first_attempt_at ? new Date(n.first_attempt_at).getTime() : null;
+      const retryable =
+        Boolean(n.recipient) &&
+        ["blocked", "failed"].includes(n.status) &&
+        (n.attempts || 0) < 6 &&
+        (!firstAttempt || firstAttempt > cutoff) &&
+        n.last_error !== "site_url_missing";
+
+      return {
+        id: n.id,
+        reservation_id: n.reservation_events?.reservation_id,
+        kind: n.reservation_events?.kind,
+        audience: n.audience,
+        status: n.status,
+        attempts: n.attempts,
+        last_error: n.last_error,
+        provider_message_id: n.provider_message_id,
+        next_attempt_at: n.next_attempt_at,
+        retryable,
+      };
+    });
+
+    return NextResponse.json(
+      {
+        recipient: settingsResult.data?.value?.recipient || "",
+        providerConfigured: providerConfigured(),
+        siteUrlConfigured: Boolean(process.env.SITE_URL),
+        problems,
+      },
+      { headers: { "Cache-Control": "no-store" } }
+    );
+  } catch (e) {
+    return failure(e);
+  }
 }
-export async function PUT(req:NextRequest) {
- const denied=guard(req); if(denied)return denied;
- try {const body=await req.json(); const recipient=body.recipient===''?'':emailAddress(body.recipient); await pool.query(`INSERT INTO site_settings(key,value) VALUES($1,$2) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=now()`,[SETTING_KEY,JSON.stringify({recipient})]); return NextResponse.json({saved:true});}catch(e){return failure(e);}
+
+export async function PUT(req: NextRequest) {
+  const denied = guard(req);
+  if (denied) return denied;
+  try {
+    const body = await req.json();
+    const recipient = body.recipient === "" ? "" : emailAddress(body.recipient);
+    const supabase = createAdminClient();
+    const { error } = await supabase
+      .from("site_settings")
+      .upsert({ key: SETTING_KEY, value: { recipient } }, { onConflict: "key" });
+    if (error) throw error;
+    return NextResponse.json({ saved: true });
+  } catch (e) {
+    return failure(e);
+  }
 }

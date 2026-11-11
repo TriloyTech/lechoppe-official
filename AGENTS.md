@@ -22,11 +22,12 @@ This document defines standard operating guidelines and repository-specific inst
 
 ## 2. Project Architecture & Stack
 
-- **Framework**: Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, PostgreSQL (`pg`).
-- **Database Abstraction**:
-  - **Client-Side**: Use `createClient()` from `@/lib/postgres/client` (provides a Supabase-compatible query builder over local `/api/db/[table]`).
-  - **Server-Side API Routes**: Use direct `pool.query()` from `@/lib/postgres/db`.
-  - **No Supabase Dependency**: Do **not** reintroduce `@supabase/supabase-js`; the codebase has fully transitioned to self-hosted PostgreSQL.
+- **Framework**: Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, Supabase (`@supabase/supabase-js`).
+- **Database & Backend**:
+  - **Self-Hosted Supabase**: Backend hosted at `https://supabase.triloytech.com` under dedicated custom schema `lechoppe` via PostgREST over HTTPS.
+  - **Client-Side**: Use `createClient()` from `@/lib/supabase/client` (or `@/lib/postgres/client` re-export) using the anon public key.
+  - **Server-Side API Routes**: Use `createAdminClient()` from `@/lib/supabase/server` with the `service_role` key and `{ db: { schema: 'lechoppe' } }`.
+  - **No Direct PostgreSQL TCP Connection**: All queries and mutations connect via PostgREST HTTPS endpoints; do not introduce direct `pg.Pool` or `DATABASE_URL` connections in web routes.
 - **Styling & Theme Variables**:
   - Rely on CSS variables defined in `app/globals.css` (`var(--bg)`, `var(--fg)`, `var(--surface)`, `var(--border)`, `var(--font-bebas)`, `var(--font-inter)`).
   - Use custom utility classes like `.bg-bg`, `.bg-surface`, `.text-fg`, and `.border-theme`.
