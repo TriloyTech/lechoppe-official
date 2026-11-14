@@ -120,6 +120,7 @@ html { scroll-behavior: smooth; }
 .show-scrollbar::-webkit-scrollbar {
   display: block !important;
   width: 6px !important;
+  height: 6px !important;
 }
 .show-scrollbar::-webkit-scrollbar-track {
   background: rgba(255, 255, 255, 0.05);

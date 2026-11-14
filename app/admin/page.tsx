@@ -1012,8 +1012,12 @@ function OffersPanel({ db, t }: { db: any; t: any }) {
       </div>
       
       <div className="bg-[#111] border border-white/10 rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+        <div
+          data-lenis-prevent="true"
+          className="overflow-x-auto touch-pan-x overscroll-x-contain show-scrollbar"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
+          <table className="w-full min-w-[640px] text-left text-sm">
             <thead className="bg-white/5 border-b border-white/10 text-white/40 uppercase tracking-widest text-[0.6rem]">
               <tr>
                 <th className="px-6 py-4">{t({ fr: "Code", en: "Code", es: "Código", it: "Codice" })}</th>
@@ -1478,7 +1482,7 @@ export default function AdminDashboard() {
       </aside>
 
       {/* ── Main Content Area ── */}
-      <main className="flex-1 overflow-y-auto p-4 md:p-10 bg-[#050505]">
+      <main data-lenis-prevent="true" className="flex-1 min-w-0 overflow-y-auto p-4 md:p-10 bg-[#050505]">
         
         <ReservationAlerts state={reservationPolling} settings={()=>setActiveTab("settings")} open={id=>{setActiveTab("reservations");setShowPastReservations(true);window.history.replaceState(null,"",`?reservation=${id}`);setTimeout(()=>document.getElementById(`reservation-${id}`)?.scrollIntoView({block:"center"}),350);}} />
         {error && <p role="alert" className="text-fg bg-surface p-4 mb-4">{error}</p>}
@@ -1490,6 +1494,7 @@ export default function AdminDashboard() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
+            className="w-full min-w-0"
           >
             {activeTab === "settings" && <ReservationNotificationSettings />}
             {activeTab === "dashboard" && <DashboardPanel reservations={reservations} menuItems={menuItems} t={t} />}
@@ -1517,8 +1522,12 @@ export default function AdminDashboard() {
                 </div>
                 
                 <div className="bg-[#111] border border-white/10 rounded-xl overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
+                  <div
+                    data-lenis-prevent="true"
+                    className="overflow-x-auto touch-pan-x overscroll-x-contain show-scrollbar"
+                    style={{ WebkitOverflowScrolling: "touch" }}
+                  >
+                    <table className="w-full min-w-[760px] text-left text-sm">
                       <thead className="bg-white/5 border-b border-white/10 text-white/40 uppercase tracking-widest text-[0.6rem]">
                         <tr>
 
